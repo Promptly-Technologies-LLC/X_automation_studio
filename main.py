@@ -11,15 +11,15 @@ from requests import Response
 from starlette.templating import _TemplateResponse
 from oauthlib.oauth2.rfc6749.errors import TokenExpiredError
 
-from x_twitter_api_v2_demo.auth import (
+from x_automation_studio.auth import (
     generate_code_verifier,
     generate_code_challenge,
     create_oauth2_session,
     is_token_expired,
 )
-from x_twitter_api_v2_demo.tweet import post_tweet
-from x_twitter_api_v2_demo.utils import get_temp_dir
-from x_twitter_api_v2_demo.session import save_token, get_user_session
+from x_automation_studio.tweet import post_tweet
+from x_automation_studio.utils import get_temp_dir
+from x_automation_studio.session import save_token, get_user_session
 
 # Configure logging
 logger = logging.getLogger("uvicorn.error")

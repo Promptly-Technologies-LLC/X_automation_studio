@@ -48,7 +48,7 @@ def create_oauth2_session(token: Optional[Dict[str, Any]] = None) -> OAuth2Sessi
 
     def token_updater(token: Dict[str, Any]) -> None:
         """Callback to save refreshed token."""
-        from x_twitter_api_v2_demo.session import save_session
+        from x_automation_studio.session import save_session
         # Note: We need to get the current session from the app context
         # This is a bit of a hack, but it works for our simple case
         save_session(session, token)  # type: ignore # session is defined after this function
