@@ -1,9 +1,11 @@
-<div class="card mb-2">
-    <div class="card-body">
-        <p class="card-text">{{ text }}</p>
-        <button type="button" class="btn btn-sm btn-outline-primary" 
-                onclick="document.getElementById('text').value = this.parentElement.querySelector('.card-text').textContent.trim()">
-            Use This
-        </button>
+<div class="col">
+    <div class="card h-100">
+        <div class="card-body">
+            <p class="card-text">{{ text }}</p>
+            <button type="button" class="btn btn-sm btn-outline-primary w-100" 
+                    onclick="document.getElementById('text').value = this.parentElement.querySelector('.card-text').textContent.trim()">
+                Use This
+            </button>
+        </div>
     </div>
 </div>

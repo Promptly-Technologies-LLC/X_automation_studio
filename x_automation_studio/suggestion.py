@@ -21,8 +21,7 @@ def get_suggestion(prompt: str = None) -> str:
     response: ModelResponse = completion(
         model="openrouter/minimax/minimax-01",
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=200,
-        api_key=os.getenv("OPENROUTER_API_KEY")
+        max_tokens=200
     )
 
     if len(response.choices[0].message.content) > 280:

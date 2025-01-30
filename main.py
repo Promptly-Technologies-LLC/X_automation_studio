@@ -249,6 +249,7 @@ def callback(request: Request, code: str, state: str) -> _TemplateResponse:
 
     # Attempt to extract the short t.co or x.com link from the returned tweet text
     tweet_text = response.json().get("data", {}).get("text", "")
+    logger.info("Tweet text: %s", tweet_text)
     tweet_link_match = re.search(r"https://(?:t\.co|x\.com)/\w+", tweet_text)
     tweet_link: Optional[str] = tweet_link_match.group(0) if tweet_link_match else None
     if tweet_link:
