@@ -20,6 +20,7 @@ from x_automation_studio.auth import (
 from x_automation_studio.tweet import post_tweet
 from x_automation_studio.utils import get_temp_dir
 from x_automation_studio.session import save_token, get_user_session
+from x_automation_studio.suggestion import get_suggestion
 
 # Configure logging
 logger = logging.getLogger("uvicorn.error")
@@ -263,6 +264,24 @@ def callback(request: Request, code: str, state: str) -> _TemplateResponse:
             "request": request,
             "tweet_link": tweet_link,
             "message": message
+        }
+    )
+
+@app.get("/suggestions", response_class=HTMLResponse)
+async def get_tweet_suggestion(
+    request: Request,
+    prompt: Optional[str] = None
+) -> _TemplateResponse:
+    """
+    Get tweet suggestions based on an optional prompt.
+    Returns the suggestion template with generated text.
+    """
+    suggested_text = get_suggestion(prompt)
+    return templates.TemplateResponse(
+        "suggestion.html",
+        {
+            "request": request,
+            "text": suggested_text
         }
     )
 
