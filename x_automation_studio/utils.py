@@ -2,6 +2,7 @@ import os
 import tempfile
 import shutil
 import atexit
+import sqlmodel
 
 # In-memory path for the temp directory
 temp_dir_path = None
@@ -20,3 +21,7 @@ def cleanup_temp_dir() -> None:
 
 # Register cleanup function
 atexit.register(cleanup_temp_dir)
+
+def get_db_session() -> sqlmodel.Session:
+    engine = sqlmodel.create_engine("sqlite:///x_automation_studio.db")
+    return sqlmodel.Session(engine)

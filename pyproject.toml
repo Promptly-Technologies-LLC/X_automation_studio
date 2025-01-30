@@ -16,4 +16,5 @@ dependencies = [
     "types-requests>=2.32.0.20241016",
     "wonderwords>=2.2.0",
     "litellm>=1.59.9",
+    "sqlmodel>=0.0.22",
 ]
