@@ -21,12 +21,12 @@ Consult the [uv installation docs](https://astral.sh/uv/) for more detailed inst
 Once uv is installed on your system, clone this repo with:
 
 ```bash
-git clone https://github.com/Promptly-Technologies-LLC/X_twitter_api_v2_demo
+git clone https://github.com/Promptly-Technologies-LLC/X_automation_studio
 ```
 
 Then:
 
-1. Navigate to the cloned directory with `cd X_twitter_api_v2_demo`.
+1. Navigate to the cloned directory with `cd X_automation_studio`.
 2. Install dependencies with `uv sync`.
 3. Copy the `example.env` file to `.env` with `cp example.env .env`.
 4. Edit the `.env` file and add your API key, API secret, client token, client secret, access token, and access secret (for instructions on how to get these, see below).

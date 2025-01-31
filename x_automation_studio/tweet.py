@@ -18,7 +18,7 @@ def create_tweet_payload(text: str, media_path: str | None = None) -> dict:
 
 def construct_tweet_link(tweet_id: str) -> str:
     """Construct the tweet link from the username and tweet ID."""
-    return f"https://x.com/{os.getenv("USERNAME")}/status/{tweet_id}"
+    return f"https://x.com/{os.getenv("X_USERNAME")}/status/{tweet_id}"
 
 
 def handle_tweet_response(response: requests.Response) -> tuple[Optional[str], Optional[str]]:

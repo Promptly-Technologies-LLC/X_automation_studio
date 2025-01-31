@@ -37,7 +37,7 @@ oauth_states: Dict[str, Dict[str, Any]] = {}
 flash_messages: Dict[str, Dict[str, str]] = {}
 
 # Try to load existing session for demo user
-current_session, current_token = get_user_session(os.getenv("USERNAME"))
+current_session, current_token = get_user_session(os.getenv("X_USERNAME"))
 if current_session and current_token:
     logger.info("Loaded existing Twitter session with token expiry: %s", current_token.get("expires_at"))
 else:
@@ -50,7 +50,7 @@ def show_form(request: Request) -> _TemplateResponse:
     Also handles displaying flash messages after redirects.
     """
     # Get and clear any flash messages for this session
-    messages = flash_messages.pop(os.getenv("USERNAME"), {})
+    messages = flash_messages.pop(os.getenv("X_USERNAME"), {})
     return templates.TemplateResponse(
         "index.html", 
         {
@@ -92,7 +92,7 @@ async def post_tweet(
                 new_token = refresh_token_if_needed(current_session, current_token)
                 if new_token:
                     current_token = new_token
-                    save_token(os.getenv("USERNAME"), current_token)
+                    save_token(os.getenv("X_USERNAME"), current_token)
                     logger.info("Successfully refreshed token, new expiry: %s", current_token.get("expires_at"))
                 else:
                     logger.warning("Token refresh failed, will start new OAuth flow")
@@ -103,7 +103,7 @@ async def post_tweet(
                 response = submit_tweet(text=text, media_path=image_path, new_token=current_token)
                 
                 message, tweet_link = handle_tweet_response(response)
-                flash_messages[os.getenv("USERNAME")] = {
+                flash_messages[os.getenv("X_USERNAME")] = {
                     "message": message,
                     "tweet_link": tweet_link if response.ok else None
                 }
@@ -111,7 +111,7 @@ async def post_tweet(
 
         except Exception as e:
             logger.error("Error using saved session: %s", str(e))
-            flash_messages[os.getenv("USERNAME")] = {
+            flash_messages[os.getenv("X_USERNAME")] = {
                 "message": f"Error posting tweet: {str(e)}"
             }
             return RedirectResponse(url="/", status_code=303)
@@ -149,7 +149,7 @@ def callback(request: Request, code: str, state: str) -> RedirectResponse:
     # Retrieve stored info for this state
     if state not in oauth_states:
         logger.error("Invalid OAuth state received: %s", state)
-        flash_messages[os.getenv("USERNAME")] = {
+        flash_messages[os.getenv("X_USERNAME")] = {
             "message": "Invalid state or session has expired."
         }
         return RedirectResponse(url="/", status_code=303)
@@ -164,7 +164,7 @@ def callback(request: Request, code: str, state: str) -> RedirectResponse:
     logger.info("Exchanging OAuth code for token")
     token = exchange_code_for_token(twitter_session, code, code_verifier)
     if not token:
-        flash_messages[os.getenv("USERNAME")] = {
+        flash_messages[os.getenv("X_USERNAME")] = {
             "message": "Failed to authenticate with Twitter"
         }
         return RedirectResponse(url="/", status_code=303)
@@ -172,7 +172,7 @@ def callback(request: Request, code: str, state: str) -> RedirectResponse:
     # Update current session and save it
     current_session = twitter_session
     current_token = token
-    save_token(os.getenv("USERNAME"), token)
+    save_token(os.getenv("X_USERNAME"), token)
     logger.info("Saved new token to disk")
 
     # Post the tweet
@@ -180,7 +180,7 @@ def callback(request: Request, code: str, state: str) -> RedirectResponse:
     response: Response = submit_tweet(text=text, media_path=image_path, new_token=token)
     
     message, tweet_link = handle_tweet_response(response)
-    flash_messages[os.getenv("USERNAME")] = {
+    flash_messages[os.getenv("X_USERNAME")] = {
         "message": message,
         "tweet_link": tweet_link if response.ok else None
     }
