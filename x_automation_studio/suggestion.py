@@ -1,8 +1,10 @@
+import re
 import logging
+from typing import Optional
 from dotenv import load_dotenv
 from litellm import completion, ModelResponse
 from sqlmodel import Session, select, func
-from .models import Prompt, Output, AIModel, engine
+from .models import Prompt, Output, AIModel, engine, Feedback
 
 load_dotenv(override=True)
 
@@ -90,17 +92,22 @@ def call_model(model: AIModel, prompt: str) -> str:
     Returns:
         str: The generated text from the model.
     """
+    logger.info(f"Calling model: {model.name}")
+    logger.info(f"Prompt: {prompt}")
     response: ModelResponse = completion(
         model=model.name,
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=200
+        max_tokens=200,
+        num_retries=3
     )
+    logger.info(f"Response: {str(response)}")
     return response.choices[0].message.content
 
 
-def create_output_record(suggestion: dict) -> None:
+def create_output_record(suggestion: dict, feedback: Optional[dict] = None) -> int:
     """
-    Create an Output record in the database. This function is intended to be used as a background task.
+    Create an Output record in the database. This function is intended to be
+    used as a background task.
     """
     # Import Session and engine if needed:
     with Session(engine) as session:
@@ -109,8 +116,17 @@ def create_output_record(suggestion: dict) -> None:
             prompt_id=suggestion["prompt_id"],
             aimodel_id=suggestion["aimodel_id"]
         )
+        if feedback:
+            output.feedback.append(Feedback(**feedback))
         session.add(output)
         session.commit()
+        return output.id
+
+
+def remove_thinking_tags(text: str) -> str:
+    """Remove thinking tags from the text, even if the content spans multiple
+    lines."""
+    return re.sub(r"<thinking>.*?</thinking>", "", text, flags=re.DOTALL)
 
 
 def get_suggestion(context: str | None = None, mode: str = "random") -> dict:
@@ -147,16 +163,39 @@ def get_suggestion(context: str | None = None, mode: str = "random") -> dict:
     prompt = prompt_obj.prompt.format(context=context)
 
     # Get the initial suggestion from the model
-    suggestion_text: str = call_model(model, prompt)
-
+    suggestion_text: str = call_model(
+        model,
+        "Return your output as a single tweet, <=280 characters with no other "
+        "text unless it is enclosed in <thinking> tags. " + prompt
+    )
+    logger.info(f"Initial tweet: {suggestion_text}")
+    suggestion_text = remove_thinking_tags(suggestion_text)
+    logger.info(f"Tweet after removing thinking tags: {suggestion_text}")
+    
     # If the suggestion is too long, abbreviate it
     while len(suggestion_text) > 280:
-        logger.info("Tweet was too long; abbreviating")
+        logger.info(f"Abbreviating tweet: {suggestion_text}")
+        create_output_record(
+            {
+                "text": suggestion_text,
+                "prompt_id": prompt_obj.id,
+                "aimodel_id": model.id
+            },
+            {
+                "score": -1,
+                "comment": (
+                    "Output should be a single tweet, <=280 characters with "
+                    "no other text, but exceeded that limit."
+                )
+            }
+        )
         suggestion_text = call_model(
             model,
-            "Abbreviate this draft tweet to "
-            "280 characters or less: " + suggestion_text
+            "Abbreviate this draft tweet to 280 characters or less. Only "
+            "return a single abbreviated tweet, no other text. " + 
+            suggestion_text
         )
+        suggestion_text = remove_thinking_tags(suggestion_text)
 
     return {
         "text": suggestion_text,

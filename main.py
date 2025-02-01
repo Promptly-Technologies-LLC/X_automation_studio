@@ -1,16 +1,17 @@
+# main.py
 import os
 import logging
 from typing import Dict, Optional, Any
 from dotenv import load_dotenv
 from requests_oauthlib import OAuth2Session
-from fastapi import FastAPI, Request, Form, File, UploadFile, BackgroundTasks
+from fastapi import FastAPI, Request, Form, File, UploadFile, BackgroundTasks, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from requests import Response
 from starlette.templating import _TemplateResponse
 from contextlib import asynccontextmanager
 from sqlmodel import SQLModel, Session, select
-from x_automation_studio.models import AIModel, Prompt, Output
+from x_automation_studio.models import AIModel, Prompt, Output, Feedback
 
 from x_automation_studio.auth import (
     refresh_token_if_needed,
@@ -227,7 +228,6 @@ async def get_tweet_suggestion(
     suggestion: dict = get_suggestion(context, mode)
     # Create the Output record synchronously and get its id
     output_id = create_output_record(suggestion)
-    suggestion["output_id"] = output_id
 
     return templates.TemplateResponse(
         "suggestion.html",
@@ -255,11 +255,83 @@ def submit_feedback(
         if output is None:
             return "Feedback submission failed: output record not found."
         # Assuming that the Output model has feedback_score and feedback_comment fields
-        output.feedback_score = score
-        output.feedback_comment = comment
+        output.feedback.append(Feedback(score=score, comment=comment))
         session.add(output)
         session.commit()
     return "<div class='alert alert-success'>Feedback recorded. Thank you!</div>"
+
+
+# ----------------------
+# Settings Endpoints
+# ----------------------
+
+@app.get("/settings", response_class=HTMLResponse)
+def settings_page(request: Request) -> _TemplateResponse:
+    """
+    Render the settings page with lists of existing AI models and prompts.
+    """
+    with Session(engine) as session:
+        models = session.exec(select(AIModel)).all()
+        prompts = session.exec(select(Prompt)).all()
+    return templates.TemplateResponse("settings.html", {
+        "request": request,
+        "models": models,
+        "prompts": prompts
+    })
+
+
+@app.post("/settings/add_model", response_class=HTMLResponse)
+def add_model(request: Request, model_name: str = Form(...)):
+    """
+    Add a new AI model.
+    """
+    with Session(engine) as session:
+        new_model = AIModel(name=model_name)
+        session.add(new_model)
+        session.commit()
+        session.refresh(new_model)
+    return RedirectResponse(url="/settings", status_code=303)
+
+
+@app.post("/settings/delete_model/{model_id}", response_class=HTMLResponse)
+def delete_model(request: Request, model_id: int):
+    """
+    Delete an existing AI model by its ID.
+    """
+    with Session(engine) as session:
+        model = session.get(AIModel, model_id)
+        if not model:
+            raise HTTPException(status_code=404, detail="AI model not found.")
+        session.delete(model)
+        session.commit()
+    return RedirectResponse(url="/settings", status_code=303)
+
+
+@app.post("/settings/add_prompt", response_class=HTMLResponse)
+def add_prompt(request: Request, prompt_text: str = Form(...)):
+    """
+    Add a new prompt.
+    """
+    with Session(engine) as session:
+        new_prompt = Prompt(prompt=prompt_text)
+        session.add(new_prompt)
+        session.commit()
+        session.refresh(new_prompt)
+    return RedirectResponse(url="/settings", status_code=303)
+
+
+@app.post("/settings/delete_prompt/{prompt_id}", response_class=HTMLResponse)
+def delete_prompt(request: Request, prompt_id: int):
+    """
+    Delete an existing prompt by its ID.
+    """
+    with Session(engine) as session:
+        prompt = session.get(Prompt, prompt_id)
+        if not prompt:
+            raise HTTPException(status_code=404, detail="Prompt not found.")
+        session.delete(prompt)
+        session.commit()
+    return RedirectResponse(url="/settings", status_code=303)
 
 
 if __name__ == "__main__":
