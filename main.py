@@ -42,8 +42,8 @@ async def lifespan(app: FastAPI):
         if not existing_model:
             new_model = AIModel(name="openrouter/minimax/minimax-01")
             new_prompt = Prompt(prompt="Write an achingly beautiful tweet. Consider the following user-provided context in composing your tweet: {context}")
-            new_model.prompts.append(new_prompt)
             session.add(new_model)
+            session.add(new_prompt)
             session.commit()
     
     yield

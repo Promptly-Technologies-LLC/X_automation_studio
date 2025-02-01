@@ -107,7 +107,7 @@ def create_output_record(suggestion: dict) -> None:
         output = Output(
             text=suggestion["text"],
             prompt_id=suggestion["prompt_id"],
-            model_id=suggestion["model_id"]
+            aimodel_id=suggestion["aimodel_id"]
         )
         session.add(output)
         session.commit()
@@ -127,7 +127,7 @@ def get_suggestion(context: str | None = None, mode: str = "random") -> dict:
 
     Returns:
         dict: A dictionary containing the suggestion 'text' and the 'prompt_id'
-        and the 'model_id' used to generate the suggestion.
+        and the 'aimodel_id' used to generate the suggestion.
     """
     # If no context is provided, use a random noun
     if not context:
@@ -161,5 +161,5 @@ def get_suggestion(context: str | None = None, mode: str = "random") -> dict:
     return {
         "text": suggestion_text,
         "prompt_id": prompt_obj.id,
-        "model_id": model.id
+        "aimodel_id": model.id
     }
