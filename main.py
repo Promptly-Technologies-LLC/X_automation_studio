@@ -3,14 +3,14 @@ import logging
 from typing import Dict, Optional, Any
 from dotenv import load_dotenv
 from requests_oauthlib import OAuth2Session
-from fastapi import FastAPI, Request, Form, File, UploadFile
+from fastapi import FastAPI, Request, Form, File, UploadFile, BackgroundTasks
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from requests import Response
 from starlette.templating import _TemplateResponse
 from contextlib import asynccontextmanager
 from sqlmodel import SQLModel, Session, select
-from x_automation_studio.models import AIModel, Prompt
+from x_automation_studio.models import AIModel, Prompt, Output
 
 from x_automation_studio.auth import (
     refresh_token_if_needed,
@@ -21,7 +21,7 @@ from x_automation_studio.auth import (
 from x_automation_studio.tweet import submit_tweet, handle_tweet_response
 from x_automation_studio.utils import get_temp_dir
 from x_automation_studio.session import save_token, get_user_session
-from x_automation_studio.suggestion import get_suggestion
+from x_automation_studio.suggestion import get_suggestion, create_output_record
 from x_automation_studio.models import engine
 
 # Configure logging
@@ -212,23 +212,54 @@ def callback(request: Request, code: str, state: str) -> RedirectResponse:
 
     return RedirectResponse(url="/", status_code=303)
 
+
 @app.get("/suggestions", response_class=HTMLResponse)
 async def get_tweet_suggestion(
     request: Request,
-    prompt: Optional[str] = None
+    background_tasks: BackgroundTasks,
+    context: Optional[str] = None,
+    mode: Optional[str] = "random"
 ) -> _TemplateResponse:
     """
-    Get tweet suggestions based on an optional prompt.
+    Get tweet suggestions based on an optional context.
     Returns the suggestion template with generated text.
     """
-    suggested_text = get_suggestion(prompt)
+    suggestion: dict = get_suggestion(context, mode)
+    # Create the Output record synchronously and get its id
+    output_id = create_output_record(suggestion)
+    suggestion["output_id"] = output_id
+
     return templates.TemplateResponse(
         "suggestion.html",
         {
             "request": request,
-            "text": suggested_text
+            "text": suggestion["text"],
+            "output_id": output_id
         }
     )
+
+
+@app.post("/feedback", response_class=HTMLResponse)
+def submit_feedback(
+    request: Request,
+    output_id: int = Form(...),
+    score: int = Form(...),
+    comment: Optional[str] = Form(None)
+) -> str:
+    """
+    Endpoint to submit feedback for a given suggestion Output.
+    Score should be 1 for thumbs up or -1 for thumbs down, and an optional comment.
+    """
+    with Session(engine) as session:
+        output = session.get(Output, output_id)
+        if output is None:
+            return "Feedback submission failed: output record not found."
+        # Assuming that the Output model has feedback_score and feedback_comment fields
+        output.feedback_score = score
+        output.feedback_comment = comment
+        session.add(output)
+        session.commit()
+    return "<div class='alert alert-success'>Feedback recorded. Thank you!</div>"
 
 
 if __name__ == "__main__":

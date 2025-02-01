@@ -6,6 +6,22 @@
                     onclick="document.getElementById('text').value = this.parentElement.querySelector('.card-text').textContent.trim()">
                 Use This
             </button>
+            <hr/>
+            <form id="feedback-form-{{ output_id }}" 
+                  hx-post="/feedback" 
+                  hx-target="#feedback-response-{{ output_id }}" 
+                  hx-swap="outerHTML">
+                <input type="hidden" name="output_id" value="{{ output_id }}" />
+                <div class="d-flex justify-content-around mb-2">
+                    <button type="submit" name="score" value="1" class="btn btn-success btn-sm">&#x1F44D;</button>
+                    <button type="submit" name="score" value="-1" class="btn btn-danger btn-sm">&#x1F44E;</button>
+                </div>
+                <div class="mb-2">
+                    <label for="feedback-comment-{{ output_id }}" class="form-label">Comment (optional):</label>
+                    <textarea class="form-control" id="feedback-comment-{{ output_id }}" name="comment" rows="2" placeholder="Enter your comment"></textarea>
+                </div>
+            </form>
+            <div id="feedback-response-{{ output_id }}"></div>
         </div>
     </div>
 </div>

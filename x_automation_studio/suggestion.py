@@ -98,6 +98,21 @@ def call_model(model: AIModel, prompt: str) -> str:
     return response.choices[0].message.content
 
 
+def create_output_record(suggestion: dict) -> None:
+    """
+    Create an Output record in the database. This function is intended to be used as a background task.
+    """
+    # Import Session and engine if needed:
+    with Session(engine) as session:
+        output = Output(
+            text=suggestion["text"],
+            prompt_id=suggestion["prompt_id"],
+            model_id=suggestion["model_id"]
+        )
+        session.add(output)
+        session.commit()
+
+
 def get_suggestion(context: str | None = None, mode: str = "random") -> dict:
     """Generate a tweet suggestion based on the context and mode provided.
 
@@ -111,8 +126,8 @@ def get_suggestion(context: str | None = None, mode: str = "random") -> dict:
         mode (str): Mode of selection: 'random' or 'highest'.
 
     Returns:
-        dict: A dictionary containing the suggestion text, the prompt used, and
-        the model name.
+        dict: A dictionary containing the suggestion 'text' and the 'prompt_id'
+        and the 'model_id' used to generate the suggestion.
     """
     # If no context is provided, use a random noun
     if not context:
@@ -145,6 +160,6 @@ def get_suggestion(context: str | None = None, mode: str = "random") -> dict:
 
     return {
         "text": suggestion_text,
-        "prompt_used": prompt,
-        "model": model.name
+        "prompt_id": prompt_obj.id,
+        "model_id": model.id
     }
