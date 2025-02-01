@@ -8,6 +8,9 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from requests import Response
 from starlette.templating import _TemplateResponse
+from contextlib import asynccontextmanager
+from sqlmodel import SQLModel, Session, select
+from x_automation_studio.models import AIModel, Prompt
 
 from x_automation_studio.auth import (
     refresh_token_if_needed,
@@ -19,6 +22,7 @@ from x_automation_studio.tweet import submit_tweet, handle_tweet_response
 from x_automation_studio.utils import get_temp_dir
 from x_automation_studio.session import save_token, get_user_session
 from x_automation_studio.suggestion import get_suggestion
+from x_automation_studio.models import engine
 
 # Configure logging
 logger = logging.getLogger("uvicorn.error")
@@ -27,8 +31,25 @@ logger.setLevel(logging.INFO)
 # Load environment variables
 load_dotenv(override=True)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Create database tables
+    SQLModel.metadata.create_all(engine)
+    
+    # Open a new session and pre-seed the database if necessary
+    with Session(engine) as session:
+        existing_model = session.exec(select(AIModel).where(AIModel.name == "openrouter/minimax/minimax-01")).first()
+        if not existing_model:
+            new_model = AIModel(name="openrouter/minimax/minimax-01")
+            new_prompt = Prompt(prompt="Write an achingly beautiful tweet. Consider the following user-provided context in composing your tweet: {context}")
+            new_model.prompts.append(new_prompt)
+            session.add(new_model)
+            session.commit()
+    
+    yield
+
 # FastAPI application
-app = FastAPI()
+app = FastAPI(lifespan=lifespan)
 templates = Jinja2Templates(directory="templates")
 
 # Global state
