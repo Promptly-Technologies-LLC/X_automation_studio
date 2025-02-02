@@ -40,6 +40,9 @@ class Prompt(sqlmodel.SQLModel, table=True):
     domain_id: Optional[int] = sqlmodel.Field(default=None, foreign_key="domain.id")
     domain: Optional[Domain] = sqlmodel.Relationship(back_populates="prompts")
 
+    textoutputs: list["TextOutput"] = sqlmodel.Relationship(back_populates="prompt")
+    imageoutputs: list["ImageOutput"] = sqlmodel.Relationship(back_populates="prompt")
+
 class TextOutput(sqlmodel.SQLModel, table=True):
     id: Optional[int] = sqlmodel.Field(default=None, primary_key=True)
     # Full text of the output
@@ -99,6 +102,10 @@ DEFAULT_MODELS = [
     AIModel(name="dall-e-3", text_output=False, image_output=True)
 ]
 
+DEFAULT_DOMAINS = [
+    Domain(name="General")
+]
+
 DEFAULT_PROMPTS = [
     Prompt(prompt="Write an achingly beautiful tweet. Consider the following user-provided context to seed your response: {context}", type=PromptType.TEXT),
     Prompt(prompt="Create an achingly beautiful image. Consider the following user-provided context to seed your response: {context}", type=PromptType.IMAGE),
@@ -116,8 +123,10 @@ def seed_db():
                 session.add(model)
             session.commit()
 
-        existing_prompts = session.exec(select(Prompt)).first()
-        if not existing_prompts:
-            for prompt in DEFAULT_PROMPTS:
-                session.add(prompt)
+        existing_domains = session.exec(select(Domain)).first()
+        if not existing_domains:
+            for domain in DEFAULT_DOMAINS:
+                for prompt in DEFAULT_PROMPTS:
+                    domain.prompts.append(prompt)
+                session.add(domain)
             session.commit()
