@@ -6,6 +6,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Settings - Manage AI Models and Prompts</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    /* Hide all prompt items by default */
+    .prompt-item {
+      display: none !important;
+    }
+
+    /* Show text prompts when text radio is checked */
+    .prompt-container:has(input[value="text"]:checked) .prompt-item[data-type="text"] {
+      display: flex !important;
+    }
+
+    /* Show image prompts when image radio is checked */
+    .prompt-container:has(input[value="image"]:checked) .prompt-item[data-type="image"] {
+      display: flex !important;
+    }
+  </style>
 </head>
 <body>
   <div class="container mt-4">
@@ -58,40 +74,44 @@
               </h2>
               <div id="domain{{ domain.id }}" class="accordion-collapse collapse" data-bs-parent="#domainsAccordion">
                 <div class="accordion-body">
-                  <!-- Add Prompt Form -->
-                  <form action="/settings/add_prompt" method="post" class="mb-3">
-                    <input type="hidden" name="domain_id" value="{{ domain.id }}">
-                    <div class="mb-2">
+                  <!-- Wrap everything in a container for radio control -->
+                  <div class="prompt-container">
+                    <!-- Radio controls -->
+                    <div class="prompt-type-selector mb-3">
                       <div class="btn-group w-100" role="group">
                         <input type="radio" class="btn-check" name="prompt_type" id="text{{ domain.id }}" value="text" checked>
-                        <label class="btn btn-outline-primary" for="text{{ domain.id }}">Text Prompt</label>
+                        <label class="btn btn-outline-secondary" for="text{{ domain.id }}">Text Prompt</label>
                         
                         <input type="radio" class="btn-check" name="prompt_type" id="image{{ domain.id }}" value="image">
-                        <label class="btn btn-outline-primary" for="image{{ domain.id }}">Image Prompt</label>
+                        <label class="btn btn-outline-secondary" for="image{{ domain.id }}">Image Prompt</label>
                       </div>
                     </div>
-                    <div class="input-group">
-                      <input type="text" name="prompt_text" class="form-control" placeholder="Enter prompt text" required>
-                      <button type="submit" class="btn btn-primary">Add Prompt</button>
-                    </div>
-                  </form>
 
-                  <!-- List of Prompts for this Domain -->
-                  <ul class="list-group">
-                    {% for prompt in domain.prompts %}
-                      <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <div>
-                          {{ prompt.prompt }}
-                          <span class="badge bg-secondary ms-2">{{ prompt.prompt_type.value }}</span>
-                        </div>
-                        <form action="/settings/delete_prompt/{{ prompt.id }}" method="post" onsubmit="return confirm('Are you sure you want to delete this prompt?');">
-                          <button type="submit" class="btn btn-danger btn-sm">Delete</button>
-                        </form>
-                      </li>
-                    {% else %}
-                      <li class="list-group-item">No prompts in this domain.</li>
-                    {% endfor %}
-                  </ul>
+                    <!-- Add Prompt Form -->
+                    <form action="/settings/add_prompt" method="post" class="mb-3">
+                      <input type="hidden" name="domain_id" value="{{ domain.id }}">
+                      <div class="input-group">
+                        <input type="text" name="prompt_text" class="form-control" placeholder="Enter prompt text" required>
+                        <button type="submit" class="btn btn-primary">Add Prompt</button>
+                      </div>
+                    </form>
+
+                    <!-- List of Prompts for this Domain -->
+                    <ul class="list-group">
+                      {% for prompt in domain.prompts %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center prompt-item" data-type="{{ prompt.prompt_type.value }}">
+                          <div>
+                            {{ prompt.prompt }}
+                          </div>
+                          <form action="/settings/delete_prompt/{{ prompt.id }}" method="post">
+                            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                          </form>
+                        </li>
+                      {% else %}
+                        <li class="list-group-item">No prompts in this domain.</li>
+                      {% endfor %}
+                    </ul>
+                  </div>
 
                   <!-- Domain Delete Button -->
                   {% if domain.id != 1 %} <!-- Prevent deletion of General domain -->
