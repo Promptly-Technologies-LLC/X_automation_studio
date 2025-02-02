@@ -1,6 +1,9 @@
 import re
 import logging
-from typing import Optional
+import random
+import math
+from enum import Enum
+from typing import Optional, List, TypeVar
 from dotenv import load_dotenv
 from litellm import completion, ModelResponse
 from sqlmodel import Session, select, func
@@ -10,6 +13,75 @@ load_dotenv(override=True)
 
 logger: logging.Logger = logging.getLogger("uvicorn.error")
 logger.setLevel(logging.INFO)
+
+class Mode(Enum):
+    RANDOM = "random"
+    WEIGHTED = "weighted"
+    HIGHEST = "highest"
+
+T = TypeVar('T')
+
+def softmax(weights: List[float], temperature: float = 1.0) -> List[float]:
+    """Compute the softmax probability distribution for a list of weights."""
+    exps = [math.exp(w / temperature) for w in weights]
+    total = sum(exps)
+    return [exp_val / total for exp_val in exps]
+
+def weighted_random_choice(items: List[T], probabilities: List[float]) -> T:
+    """Return a randomly selected item from items using the given probabilities."""
+    # Using random.choices which accepts a weights argument:
+    return random.choices(items, weights=probabilities, k=1)[0]
+
+def select_weighted_prompt(session: Session, temperature: float = 1.0) -> Prompt:
+    # Retrieve all prompts along with their cumulative feedback scores.
+    prompts = session.exec(select(Prompt)).all()
+    if not prompts:
+        raise ValueError("No prompts available")
+    
+    scores = []
+    for prompt in prompts:
+        # Assuming a relationship exists to TextOutput and its feedback:
+        score = session.exec(
+            select(func.sum(func.coalesce(TextOutput.feedback.score, 0)))
+            .where(TextOutput.prompt_id == prompt.id)
+        ).one() or 0
+        scores.append(score)
+
+    # Shift scores if necessary (if there are negatives)
+    min_score = min(scores)
+    if min_score < 0:
+        scores = [s - min_score for s in scores]
+
+    # Convert scores to probabilities (using softmax here)
+    probabilities = softmax(scores, temperature=temperature)
+    
+    # Choose a prompt using the weighted random choice:
+    return weighted_random_choice(prompts, probabilities)
+
+
+def select_weighted_model(session: Session, temperature: float = 1.0) -> AIModel:
+    # Retrieve all models that support text output.
+    models = session.exec(
+        select(AIModel).where(AIModel.text_output == True)
+    ).all()
+    if not models:
+        raise ValueError("No models available")
+
+    scores = []
+    for model in models:
+        score = session.exec(
+            select(func.sum(func.coalesce(TextOutput.feedback.score, 0)))
+            .where(TextOutput.aimodel_id == model.id)
+        ).one() or 0
+        scores.append(score)
+    
+    min_score = min(scores)
+    if min_score < 0:
+        scores = [s - min_score for s in scores]
+
+    probabilities = softmax(scores, temperature=temperature)
+    
+    return weighted_random_choice(models, probabilities)
 
 
 def select_highest_rated_prompt(session: Session) -> Prompt:
@@ -49,7 +121,11 @@ def select_random_model(session: Session) -> AIModel:
     Returns:
         AIModel: A randomly selected AI model.
     """
-    return session.exec(select(AIModel).where(AIModel.text_output == True).order_by(func.random())).first()
+    return session.exec(
+        select(AIModel).where(
+            AIModel.text_output == True
+        ).order_by(func.random())
+    ).first()
 
 
 def select_highest_rated_model(session: Session) -> AIModel:
@@ -104,7 +180,9 @@ def call_model(model: AIModel, prompt: str) -> str:
     return response.choices[0].message.content
 
 
-def create_output_record(suggestion: dict, feedback: Optional[dict] = None) -> int:
+def create_output_record(
+        suggestion: dict, feedback: Optional[dict] = None
+    ) -> int:
     """
     Create an TextOutput record in the database. This function is intended to be
     used as a background task.
@@ -129,40 +207,26 @@ def remove_thinking_tags(text: str) -> str:
     return re.sub(r"<thinking>.*?</thinking>", "", text, flags=re.DOTALL)
 
 
-def get_suggestion(context: str | None = None, mode: str = "random") -> dict:
-    """Generate a tweet suggestion based on the context and mode provided.
-
-    In 'highest' mode, the prompt and model with the highest ratings are
-    selected. In any other mode, a random prompt and model are used. The prompt
-    is formatted with the provided context.
-
-    Args:
-        context (str | None): The context to supplement the prompt. If None, a
-        random noun is used.
-        mode (str): Mode of selection: 'random' or 'highest'.
-
-    Returns:
-        dict: A dictionary containing the suggestion 'text' and the 'prompt_id'
-        and the 'aimodel_id' used to generate the suggestion.
-    """
-    # If no context is provided, use a random noun
+def get_suggestion(context: str | None = None, mode: Mode = Mode.RANDOM) -> dict:
     if not context:
-        context: str = get_random_noun()
+        context = get_random_noun()
 
-    if mode == "highest":
-        with Session(engine) as session:
+    with Session(engine) as session:
+        if mode == Mode.HIGHEST:
             prompt_obj = select_highest_rated_prompt(session)
             model = select_highest_rated_model(session)
-    else:
-        # For random mode, create a new session to get prompt and model
-        with Session(engine) as session:
+        elif mode == Mode.WEIGHTED:
+            # You can adjust the temperature parameter to control randomness.
+            prompt_obj = select_weighted_prompt(session, temperature=1.0)
+            model = select_weighted_model(session, temperature=1.0)
+        else:
             prompt_obj = select_random_prompt(session)
             model = select_random_model(session)
 
     # Format the prompt with the context
     prompt = prompt_obj.prompt.format(context=context)
 
-    # Get the initial suggestion from the model
+    # Call the model
     suggestion_text: str = call_model(
         model,
         "Return your output as a single tweet, <=280 characters with no other "
@@ -171,7 +235,7 @@ def get_suggestion(context: str | None = None, mode: str = "random") -> dict:
     logger.info(f"Initial tweet: {suggestion_text}")
     suggestion_text = remove_thinking_tags(suggestion_text)
     logger.info(f"Tweet after removing thinking tags: {suggestion_text}")
-    
+
     # If the suggestion is too long, abbreviate it
     while len(suggestion_text) > 280:
         logger.info(f"Abbreviating tweet: {suggestion_text}")
