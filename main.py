@@ -10,8 +10,9 @@ from fastapi.templating import Jinja2Templates
 from requests import Response
 from starlette.templating import _TemplateResponse
 from contextlib import asynccontextmanager
-from sqlmodel import SQLModel, Session, select
-from x_automation_studio.models import AIModel, Prompt, TextOutput, Feedback
+from sqlmodel import Session, select
+from sqlalchemy.orm import selectinload
+from x_automation_studio.models import AIModel, Prompt, TextOutput, Feedback, Domain, PromptType
 
 from x_automation_studio.auth import (
     refresh_token_if_needed,
@@ -263,10 +264,15 @@ def settings_page(request: Request) -> _TemplateResponse:
     """
     with Session(engine) as session:
         models = session.exec(select(AIModel)).all()
+        # Eagerly load the prompts relationship
+        domains = session.exec(
+            select(Domain).options(selectinload(Domain.prompts))
+        ).all()
         prompts = session.exec(select(Prompt)).all()
     return templates.TemplateResponse("settings.html", {
         "request": request,
         "models": models,
+        "domains": domains,
         "prompts": prompts
     })
 
@@ -299,15 +305,31 @@ def delete_model(request: Request, model_id: int):
 
 
 @app.post("/settings/add_prompt", response_class=HTMLResponse)
-def add_prompt(request: Request, prompt_text: str = Form(...)):
+def add_prompt(
+    request: Request, 
+    prompt_text: str = Form(...), 
+    domain_id: Optional[int] = Form(None),
+    prompt_type: str = Form(...)
+):
     """
     Add a new prompt.
     """
+    if not "{context}" in prompt_text:
+        prompt_text = prompt_text + (
+            "Consider the following user-provided "
+            "context to seed your response: {context}"
+        )
+    
     with Session(engine) as session:
-        new_prompt = Prompt(prompt=prompt_text)
+        new_prompt = Prompt(
+            prompt=prompt_text,
+            prompt_type=PromptType(prompt_type)  # Convert string to enum
+        )
+        if domain_id:
+            domain = session.get(Domain, domain_id)
+            domain.prompts.append(new_prompt)
         session.add(new_prompt)
         session.commit()
-        session.refresh(new_prompt)
     return RedirectResponse(url="/settings", status_code=303)
 
 
@@ -323,6 +345,19 @@ def delete_prompt(request: Request, prompt_id: int):
         session.delete(prompt)
         session.commit()
     return RedirectResponse(url="/settings", status_code=303)
+
+
+@app.post("/settings/add_domain", response_class=HTMLResponse)
+def add_domain(request: Request, domain_name: str = Form(...)):
+    """
+    Add a new domain.
+    """
+    with Session(engine) as session:
+        new_domain = Domain(name=domain_name)
+        session.add(new_domain)
+        session.commit()
+    return RedirectResponse(url="/settings", status_code=303)
+
 
 
 if __name__ == "__main__":

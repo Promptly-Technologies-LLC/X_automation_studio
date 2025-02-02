@@ -35,7 +35,7 @@ class Prompt(sqlmodel.SQLModel, table=True):
     id: Optional[int] = sqlmodel.Field(default=None, primary_key=True)
     # Full text of the prompt
     prompt: str
-    type: PromptType
+    prompt_type: PromptType
 
     domain_id: Optional[int] = sqlmodel.Field(default=None, foreign_key="domain.id")
     domain: Optional[Domain] = sqlmodel.Relationship(back_populates="prompts")
@@ -107,8 +107,8 @@ DEFAULT_DOMAINS = [
 ]
 
 DEFAULT_PROMPTS = [
-    Prompt(prompt="Write an achingly beautiful tweet. Consider the following user-provided context to seed your response: {context}", type=PromptType.TEXT),
-    Prompt(prompt="Create an achingly beautiful image. Consider the following user-provided context to seed your response: {context}", type=PromptType.IMAGE),
+    Prompt(prompt="Write an achingly beautiful tweet. Consider the following user-provided context to seed your response: {context}", prompt_type=PromptType.TEXT),
+    Prompt(prompt="Create an achingly beautiful image. Consider the following user-provided context to seed your response: {context}", prompt_type=PromptType.IMAGE),
 ]
 
 def create_tables():
