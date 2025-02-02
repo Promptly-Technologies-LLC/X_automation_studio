@@ -32,15 +32,18 @@ def weighted_random_choice(items: List[T], probabilities: List[float]) -> T:
     # Using random.choices which accepts a weights argument:
     return random.choices(items, weights=probabilities, k=1)[0]
 
-def select_weighted_prompt(session: Session, temperature: float = 1.0) -> Prompt:
-    # Retrieve all prompts along with their cumulative feedback scores.
-    prompts = session.exec(select(Prompt)).all()
+def select_weighted_prompt(session: Session, temperature: float = 1.0, domain_id: Optional[int] = None) -> Prompt:
+    # Optionally filter by domain
+    query = select(Prompt)
+    if domain_id:
+        query = query.where(Prompt.domain_id == domain_id)
+
+    prompts = session.exec(query).all()
     if not prompts:
-        raise ValueError("No prompts available")
-    
+        raise ValueError("No prompts available for the specified domain")
+
     scores = []
     for prompt in prompts:
-        # Assuming a relationship exists to TextOutput and its feedback:
         score = session.exec(
             select(func.sum(func.coalesce(TextOutput.feedback.score, 0)))
             .where(TextOutput.prompt_id == prompt.id)
@@ -84,7 +87,7 @@ def select_weighted_model(session: Session, temperature: float = 1.0) -> AIModel
     return weighted_random_choice(models, probabilities)
 
 
-def select_highest_rated_prompt(session: Session) -> Prompt:
+def select_highest_rated_prompt(session: Session, domain_id: Optional[int] = None) -> Prompt:
     """Select the prompt with the highest total output feedback score.
 
     Args:
@@ -93,14 +96,18 @@ def select_highest_rated_prompt(session: Session) -> Prompt:
     Returns:
         Prompt: The prompt with the highest cumulative score.
     """
+    query = select(Prompt)
+    if domain_id:
+        query = query.where(Prompt.domain_id == domain_id)
+
     return session.exec(
-        select(Prompt).order_by(
+        query.order_by(
             func.sum(func.coalesce(TextOutput.feedback.score, 0)).desc()
         )
     ).first()
 
 
-def select_random_prompt(session: Session) -> Prompt:
+def select_random_prompt(session: Session, domain_id: Optional[int] = None) -> Prompt:
     """Select a random prompt from the database.
 
     Args:
@@ -109,7 +116,11 @@ def select_random_prompt(session: Session) -> Prompt:
     Returns:
         Prompt: A randomly selected prompt.
     """
-    return session.exec(select(Prompt).order_by(func.random())).first()
+    query = select(Prompt)
+    if domain_id:
+        query = query.where(Prompt.domain_id == domain_id)
+
+    return session.exec(query.order_by(func.random())).first()
 
 
 def select_random_model(session: Session) -> AIModel:
@@ -207,20 +218,19 @@ def remove_thinking_tags(text: str) -> str:
     return re.sub(r"<thinking>.*?</thinking>", "", text, flags=re.DOTALL)
 
 
-def get_suggestion(context: str | None = None, mode: Mode = Mode.RANDOM) -> dict:
+def get_suggestion(context: str | None = None, mode: Mode = Mode.RANDOM, domain_id: Optional[int] = None) -> dict:
     if not context:
         context = get_random_noun()
 
     with Session(engine) as session:
         if mode == Mode.HIGHEST:
-            prompt_obj = select_highest_rated_prompt(session)
+            prompt_obj = select_highest_rated_prompt(session, domain_id=domain_id)
             model = select_highest_rated_model(session)
         elif mode == Mode.WEIGHTED:
-            # You can adjust the temperature parameter to control randomness.
-            prompt_obj = select_weighted_prompt(session, temperature=1.0)
+            prompt_obj = select_weighted_prompt(session, temperature=1.0, domain_id=domain_id)
             model = select_weighted_model(session, temperature=1.0)
         else:
-            prompt_obj = select_random_prompt(session)
+            prompt_obj = select_random_prompt(session, domain_id=domain_id)
             model = select_random_model(session)
 
     # Format the prompt with the context

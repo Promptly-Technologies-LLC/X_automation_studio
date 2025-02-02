@@ -209,13 +209,14 @@ async def get_tweet_suggestion(
     request: Request,
     background_tasks: BackgroundTasks,
     context: Optional[str] = None,
-    mode: Optional[str] = "random"
+    mode: Optional[str] = "random",
+    domain_id: Optional[int] = None
 ) -> _TemplateResponse:
     """
     Get tweet suggestions based on an optional context.
     Returns the suggestion template with generated text.
     """
-    suggestion: dict = get_suggestion(context, mode)
+    suggestion: dict = get_suggestion(context, mode, domain_id=domain_id)
     # Create the TextOutput record synchronously and get its id
     textoutput_id = create_output_record(suggestion)
 

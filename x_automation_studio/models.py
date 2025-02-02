@@ -25,14 +25,20 @@ class AIModel(sqlmodel.SQLModel, table=True):
     textoutputs: list["TextOutput"] = sqlmodel.Relationship(back_populates="aimodel")
     imageoutputs: list["ImageOutput"] = sqlmodel.Relationship(back_populates="aimodel")
 
+class Domain(SQLModel, table=True):
+    id: Optional[int] = sqlmodel.Field(default=None, primary_key=True)
+    name: str
+
+    prompts: list["Prompt"] = sqlmodel.Relationship(back_populates="domain")
+
 class Prompt(sqlmodel.SQLModel, table=True):
     id: Optional[int] = sqlmodel.Field(default=None, primary_key=True)
     # Full text of the prompt
     prompt: str
     type: PromptType
 
-    textoutputs: list["TextOutput"] = sqlmodel.Relationship(back_populates="prompt")
-    imageoutputs: list["ImageOutput"] = sqlmodel.Relationship(back_populates="prompt")
+    domain_id: Optional[int] = sqlmodel.Field(default=None, foreign_key="domain.id")
+    domain: Optional[Domain] = sqlmodel.Relationship(back_populates="prompts")
 
 class TextOutput(sqlmodel.SQLModel, table=True):
     id: Optional[int] = sqlmodel.Field(default=None, primary_key=True)

@@ -71,12 +71,24 @@
                                     <option value="highest">Highest</option>
                                 </select>
                             </div>
+
+                            <!-- NEW Domain Selector -->
+                            <div class="mb-3">
+                                <label for="domain-id" class="form-label">Domain:</label>
+                                <select id="domain-id" name="domain_id" class="form-select">
+                                    <option value="" selected>-- All Domains --</option>
+                                    {% for domain in domains %}
+                                      <option value="{{ domain.id }}">{{ domain.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
                             <button type="button" 
                                     class="btn btn-secondary w-100"
                                     hx-get="/suggestions"
                                     hx-target="#suggestions"
                                     hx-swap="beforeend"
-                                    hx-include="#suggestion-context, #suggestion-mode">
+                                    hx-include="#suggestion-context, #suggestion-mode, #domain-id">
                                 Get Suggestion
                             </button>
                         </form>
