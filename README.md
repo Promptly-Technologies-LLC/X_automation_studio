@@ -4,7 +4,7 @@ This project is aimed at creating a platform for automation-assisted social medi
 
 ## Setup
 
-This demo repo uses the the `uv` package manager to manage dependencies. If you don't already have `uv` installed, you can install it with the following curl command:
+This demo repo uses the `uv` package manager to manage dependencies. If you don't already have `uv` installed, you can install it with the following curl command:
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh

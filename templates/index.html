@@ -55,7 +55,7 @@
                                 <label for="suggestion-context" class="form-label">Suggestion Context (optional):</label>
                                 <input type="text"
                                        id="suggestion-context"
-                                       name="prompt"
+                                       name="context"
                                        class="form-control"
                                        placeholder="Enter topic or context for suggestion"
                                        hx-get="/suggestions"
@@ -63,12 +63,20 @@
                                        hx-swap="beforeend"
                                        hx-trigger="keyup[keyCode==13]">
                             </div>
+                            <div class="mb-3">
+                                <label for="suggestion-mode" class="form-label">Suggestion Mode:</label>
+                                <select id="suggestion-mode" name="mode" class="form-select">
+                                    <option value="random" selected>Random</option>
+                                    <option value="weighted">Weighted</option>
+                                    <option value="highest">Highest</option>
+                                </select>
+                            </div>
                             <button type="button" 
                                     class="btn btn-secondary w-100"
                                     hx-get="/suggestions"
                                     hx-target="#suggestions"
                                     hx-swap="beforeend"
-                                    hx-include="#suggestion-context">
+                                    hx-include="#suggestion-context, #suggestion-mode">
                                 Get Suggestion
                             </button>
                         </form>

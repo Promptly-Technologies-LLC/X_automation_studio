@@ -1,13 +1,17 @@
+# main.py
 import os
 import logging
 from typing import Dict, Optional, Any
 from dotenv import load_dotenv
 from requests_oauthlib import OAuth2Session
-from fastapi import FastAPI, Request, Form, File, UploadFile
+from fastapi import FastAPI, Request, Form, File, UploadFile, BackgroundTasks, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from requests import Response
 from starlette.templating import _TemplateResponse
+from contextlib import asynccontextmanager
+from sqlmodel import SQLModel, Session, select
+from x_automation_studio.models import AIModel, Prompt, TextOutput, Feedback
 
 from x_automation_studio.auth import (
     refresh_token_if_needed,
@@ -18,7 +22,8 @@ from x_automation_studio.auth import (
 from x_automation_studio.tweet import submit_tweet, handle_tweet_response
 from x_automation_studio.utils import get_temp_dir
 from x_automation_studio.session import save_token, get_user_session
-from x_automation_studio.suggestion import get_suggestion
+from x_automation_studio.suggestion import get_suggestion, create_output_record
+from x_automation_studio.models import engine, create_tables, seed_db
 
 # Configure logging
 logger = logging.getLogger("uvicorn.error")
@@ -27,8 +32,15 @@ logger.setLevel(logging.INFO)
 # Load environment variables
 load_dotenv(override=True)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Create database tables
+    create_tables()
+    seed_db()
+    yield
+
 # FastAPI application
-app = FastAPI()
+app = FastAPI(lifespan=lifespan)
 templates = Jinja2Templates(directory="templates")
 
 # Global state
@@ -191,23 +203,125 @@ def callback(request: Request, code: str, state: str) -> RedirectResponse:
 
     return RedirectResponse(url="/", status_code=303)
 
+
 @app.get("/suggestions", response_class=HTMLResponse)
 async def get_tweet_suggestion(
     request: Request,
-    prompt: Optional[str] = None
+    background_tasks: BackgroundTasks,
+    context: Optional[str] = None,
+    mode: Optional[str] = "random"
 ) -> _TemplateResponse:
     """
-    Get tweet suggestions based on an optional prompt.
+    Get tweet suggestions based on an optional context.
     Returns the suggestion template with generated text.
     """
-    suggested_text = get_suggestion(prompt)
+    suggestion: dict = get_suggestion(context, mode)
+    # Create the TextOutput record synchronously and get its id
+    textoutput_id = create_output_record(suggestion)
+
     return templates.TemplateResponse(
         "suggestion.html",
         {
             "request": request,
-            "text": suggested_text
+            "text": suggestion["text"],
+            "textoutput_id": textoutput_id
         }
     )
+
+
+@app.post("/feedback", response_class=HTMLResponse)
+def submit_feedback(
+    request: Request,
+    textoutput_id: int = Form(...),
+    score: int = Form(...),
+    comment: Optional[str] = Form(None)
+) -> str:
+    """
+    Endpoint to submit feedback for a given suggestion TextOutput.
+    Score should be 1 for thumbs up or -1 for thumbs down, and an optional comment.
+    """
+    with Session(engine) as session:
+        output = session.get(TextOutput, textoutput_id)
+        if output is None:
+            return "Feedback submission failed: output record not found."
+        # Assuming that the TextOutput model has feedback_score and feedback_comment fields
+        output.feedback.append(Feedback(score=score, comment=comment))
+        session.add(output)
+        session.commit()
+    return "<div class='alert alert-success'>Feedback recorded. Thank you!</div>"
+
+
+# ----------------------
+# Settings Endpoints
+# ----------------------
+
+@app.get("/settings", response_class=HTMLResponse)
+def settings_page(request: Request) -> _TemplateResponse:
+    """
+    Render the settings page with lists of existing AI models and prompts.
+    """
+    with Session(engine) as session:
+        models = session.exec(select(AIModel)).all()
+        prompts = session.exec(select(Prompt)).all()
+    return templates.TemplateResponse("settings.html", {
+        "request": request,
+        "models": models,
+        "prompts": prompts
+    })
+
+
+@app.post("/settings/add_model", response_class=HTMLResponse)
+def add_model(request: Request, model_name: str = Form(...)):
+    """
+    Add a new AI model.
+    """
+    with Session(engine) as session:
+        new_model = AIModel(name=model_name)
+        session.add(new_model)
+        session.commit()
+        session.refresh(new_model)
+    return RedirectResponse(url="/settings", status_code=303)
+
+
+@app.post("/settings/delete_model/{model_id}", response_class=HTMLResponse)
+def delete_model(request: Request, model_id: int):
+    """
+    Delete an existing AI model by its ID.
+    """
+    with Session(engine) as session:
+        model = session.get(AIModel, model_id)
+        if not model:
+            raise HTTPException(status_code=404, detail="AI model not found.")
+        session.delete(model)
+        session.commit()
+    return RedirectResponse(url="/settings", status_code=303)
+
+
+@app.post("/settings/add_prompt", response_class=HTMLResponse)
+def add_prompt(request: Request, prompt_text: str = Form(...)):
+    """
+    Add a new prompt.
+    """
+    with Session(engine) as session:
+        new_prompt = Prompt(prompt=prompt_text)
+        session.add(new_prompt)
+        session.commit()
+        session.refresh(new_prompt)
+    return RedirectResponse(url="/settings", status_code=303)
+
+
+@app.post("/settings/delete_prompt/{prompt_id}", response_class=HTMLResponse)
+def delete_prompt(request: Request, prompt_id: int):
+    """
+    Delete an existing prompt by its ID.
+    """
+    with Session(engine) as session:
+        prompt = session.get(Prompt, prompt_id)
+        if not prompt:
+            raise HTTPException(status_code=404, detail="Prompt not found.")
+        session.delete(prompt)
+        session.commit()
+    return RedirectResponse(url="/settings", status_code=303)
 
 
 if __name__ == "__main__":
