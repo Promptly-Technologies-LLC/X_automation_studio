@@ -4,7 +4,7 @@ from typing import Optional
 from dotenv import load_dotenv
 from litellm import completion, ModelResponse
 from sqlmodel import Session, select, func
-from .models import Prompt, Output, AIModel, engine, Feedback
+from .models import Prompt, TextOutput, AIModel, engine, Feedback
 
 load_dotenv(override=True)
 
@@ -23,7 +23,7 @@ def select_highest_rated_prompt(session: Session) -> Prompt:
     """
     return session.exec(
         select(Prompt).order_by(
-            func.sum(func.coalesce(Output.feedback.score, 0)).desc()
+            func.sum(func.coalesce(TextOutput.feedback.score, 0)).desc()
         )
     ).first()
 
@@ -49,7 +49,7 @@ def select_random_model(session: Session) -> AIModel:
     Returns:
         AIModel: A randomly selected AI model.
     """
-    return session.exec(select(AIModel).order_by(func.random())).first()
+    return session.exec(select(AIModel).where(AIModel.text_output == True).order_by(func.random())).first()
 
 
 def select_highest_rated_model(session: Session) -> AIModel:
@@ -62,8 +62,8 @@ def select_highest_rated_model(session: Session) -> AIModel:
         AIModel: The AI model with the highest cumulative score.
     """
     return session.exec(
-        select(AIModel).order_by(
-            func.sum(func.coalesce(Output.feedback.score, 0)).desc()
+        select(AIModel).where(AIModel.text_output == True).order_by(
+            func.sum(func.coalesce(TextOutput.feedback.score, 0)).desc()
         )
     ).first()
 
@@ -106,12 +106,12 @@ def call_model(model: AIModel, prompt: str) -> str:
 
 def create_output_record(suggestion: dict, feedback: Optional[dict] = None) -> int:
     """
-    Create an Output record in the database. This function is intended to be
+    Create an TextOutput record in the database. This function is intended to be
     used as a background task.
     """
     # Import Session and engine if needed:
     with Session(engine) as session:
-        output = Output(
+        output = TextOutput(
             text=suggestion["text"],
             prompt_id=suggestion["prompt_id"],
             aimodel_id=suggestion["aimodel_id"]
@@ -184,7 +184,7 @@ def get_suggestion(context: str | None = None, mode: str = "random") -> dict:
             {
                 "score": -1,
                 "comment": (
-                    "Output should be a single tweet, <=280 characters with "
+                    "TextOutput should be a single tweet, <=280 characters with "
                     "no other text, but exceeded that limit."
                 )
             }

@@ -1,36 +1,64 @@
 # models.py
 import sqlmodel
+from sqlmodel import Session, select, SQLModel
 from typing import Optional
+from enum import Enum
+
+# --- DB ---
 
 DATABASE_URL = "sqlite:///./database.db"
 engine = sqlmodel.create_engine(DATABASE_URL, echo=True)
+
+# --- MODELS ---
+
+class PromptType(Enum):
+    TEXT = "text"
+    IMAGE = "image"
 
 class AIModel(sqlmodel.SQLModel, table=True):
     id: Optional[int] = sqlmodel.Field(default=None, primary_key=True)
     # Name under which model can be accessed through LiteLLM
     name: str
+    text_output: bool
+    image_output: bool
 
-    outputs: list["Output"] = sqlmodel.Relationship(back_populates="aimodel")
+    textoutputs: list["TextOutput"] = sqlmodel.Relationship(back_populates="aimodel")
+    imageoutputs: list["ImageOutput"] = sqlmodel.Relationship(back_populates="aimodel")
 
 class Prompt(sqlmodel.SQLModel, table=True):
     id: Optional[int] = sqlmodel.Field(default=None, primary_key=True)
     # Full text of the prompt
     prompt: str
+    type: PromptType
 
-    outputs: list["Output"] = sqlmodel.Relationship(back_populates="prompt")
+    textoutputs: list["TextOutput"] = sqlmodel.Relationship(back_populates="prompt")
+    imageoutputs: list["ImageOutput"] = sqlmodel.Relationship(back_populates="prompt")
 
-class Output(sqlmodel.SQLModel, table=True):
+class TextOutput(sqlmodel.SQLModel, table=True):
     id: Optional[int] = sqlmodel.Field(default=None, primary_key=True)
     # Full text of the output
     text: str
 
     prompt_id: Optional[int] = sqlmodel.Field(default=None, foreign_key="prompt.id")
-    prompt: Prompt = sqlmodel.Relationship(back_populates="outputs")
+    prompt: Prompt = sqlmodel.Relationship(back_populates="textoutputs")
 
     aimodel_id: Optional[int] = sqlmodel.Field(default=None, foreign_key="aimodel.id")
-    aimodel: AIModel = sqlmodel.Relationship(back_populates="outputs")
+    aimodel: AIModel = sqlmodel.Relationship(back_populates="textoutputs")
 
-    feedback: list["Feedback"] = sqlmodel.Relationship(back_populates="output")
+    feedback: list["Feedback"] = sqlmodel.Relationship(back_populates="textoutput")
+
+class ImageOutput(sqlmodel.SQLModel, table=True):
+    id: Optional[int] = sqlmodel.Field(default=None, primary_key=True)
+    # Blob of the image
+    image: bytes
+
+    prompt_id: Optional[int] = sqlmodel.Field(default=None, foreign_key="prompt.id")
+    prompt: Prompt = sqlmodel.Relationship(back_populates="imageoutputs")
+
+    aimodel_id: Optional[int] = sqlmodel.Field(default=None, foreign_key="aimodel.id")
+    aimodel: AIModel = sqlmodel.Relationship(back_populates="imageoutputs")
+
+    feedback: list["Feedback"] = sqlmodel.Relationship(back_populates="imageoutput")
 
 class Feedback(sqlmodel.SQLModel, table=True):
     id: Optional[int] = sqlmodel.Field(default=None, primary_key=True)
@@ -38,5 +66,52 @@ class Feedback(sqlmodel.SQLModel, table=True):
     score: int
     comment: Optional[str] = sqlmodel.Field(default=None)
 
-    output_id: Optional[int] = sqlmodel.Field(default=None, foreign_key="output.id")
-    output: Output = sqlmodel.Relationship(back_populates="feedback")
+    textoutput_id: Optional[int] = sqlmodel.Field(default=None, foreign_key="textoutput.id")
+    textoutput: TextOutput = sqlmodel.Relationship(back_populates="feedback")
+
+    imageoutput_id: Optional[int] = sqlmodel.Field(default=None, foreign_key="imageoutput.id")
+    imageoutput: ImageOutput = sqlmodel.Relationship(back_populates="feedback")
+
+# --- SEED ---
+
+DEFAULT_MODELS = [
+    AIModel(name="openrouter/minimax/minimax-01", text_output=True, image_output=False),
+    AIModel(name="openrouter/qwen/qwen-turbo-2024-11-01", text_output=True, image_output=False),
+    AIModel(name="openrouter/qwen/qwen-plus", text_output=True, image_output=False),
+    AIModel(name="openrouter/openai/o3-mini", text_output=True, image_output=False),
+    AIModel(name="openrouter/deepseek/deepseek-r1-distill-qwen-1.5b", text_output=True, image_output=False),
+    AIModel(name="openrouter/mistralai/mistral-small-24b-instruct-2501", text_output=True, image_output=False),
+    AIModel(name="openrouter/deepseek/deepseek-r1-distill-qwen-32b", text_output=True, image_output=False),
+    AIModel(name="openrouter/deepseek/deepseek-r1-distill-qwen-14b", text_output=True, image_output=False),
+    AIModel(name="openrouter/liquid/lfm-7b", text_output=True, image_output=False),
+    AIModel(name="openrouter/google/gemini-2.0-flash-thinking-exp:free", text_output=True, image_output=False),
+    AIModel(name="openrouter/deepseek/deepseek-r1:free", text_output=True, image_output=False),
+    AIModel(name="openrouter/sophosympatheia/rogue-rose-103b-v0.2:free", text_output=True, image_output=False),
+    AIModel(name="openrouter/microsoft/phi-4", text_output=True, image_output=False),
+    AIModel(name="openrouter/openai/o1", text_output=True, image_output=False),
+    AIModel(name="openrouter/x-ai/grok-2-1212", text_output=True, image_output=False),
+    AIModel(name="dall-e-3", text_output=False, image_output=True)
+]
+
+DEFAULT_PROMPTS = [
+    Prompt(prompt="Write an achingly beautiful tweet. Consider the following user-provided context to seed your response: {context}", type=PromptType.TEXT),
+    Prompt(prompt="Create an achingly beautiful image. Consider the following user-provided context to seed your response: {context}", type=PromptType.IMAGE),
+]
+
+def create_tables():
+    SQLModel.metadata.create_all(engine)
+
+
+def seed_db():
+    with Session(engine) as session:
+        existing_models = session.exec(select(AIModel)).first()
+        if not existing_models:
+            for model in DEFAULT_MODELS:
+                session.add(model)
+            session.commit()
+
+        existing_prompts = session.exec(select(Prompt)).first()
+        if not existing_prompts:
+            for prompt in DEFAULT_PROMPTS:
+                session.add(prompt)
+            session.commit()

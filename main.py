@@ -11,7 +11,7 @@ from requests import Response
 from starlette.templating import _TemplateResponse
 from contextlib import asynccontextmanager
 from sqlmodel import SQLModel, Session, select
-from x_automation_studio.models import AIModel, Prompt, Output, Feedback
+from x_automation_studio.models import AIModel, Prompt, TextOutput, Feedback
 
 from x_automation_studio.auth import (
     refresh_token_if_needed,
@@ -23,7 +23,7 @@ from x_automation_studio.tweet import submit_tweet, handle_tweet_response
 from x_automation_studio.utils import get_temp_dir
 from x_automation_studio.session import save_token, get_user_session
 from x_automation_studio.suggestion import get_suggestion, create_output_record
-from x_automation_studio.models import engine
+from x_automation_studio.models import engine, create_tables, seed_db
 
 # Configure logging
 logger = logging.getLogger("uvicorn.error")
@@ -35,18 +35,8 @@ load_dotenv(override=True)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Create database tables
-    SQLModel.metadata.create_all(engine)
-    
-    # Open a new session and pre-seed the database if necessary
-    with Session(engine) as session:
-        existing_model = session.exec(select(AIModel).where(AIModel.name == "openrouter/minimax/minimax-01")).first()
-        if not existing_model:
-            new_model = AIModel(name="openrouter/minimax/minimax-01")
-            new_prompt = Prompt(prompt="Write an achingly beautiful tweet. Consider the following user-provided context in composing your tweet: {context}")
-            session.add(new_model)
-            session.add(new_prompt)
-            session.commit()
-    
+    create_tables()
+    seed_db()
     yield
 
 # FastAPI application
@@ -226,15 +216,15 @@ async def get_tweet_suggestion(
     Returns the suggestion template with generated text.
     """
     suggestion: dict = get_suggestion(context, mode)
-    # Create the Output record synchronously and get its id
-    output_id = create_output_record(suggestion)
+    # Create the TextOutput record synchronously and get its id
+    textoutput_id = create_output_record(suggestion)
 
     return templates.TemplateResponse(
         "suggestion.html",
         {
             "request": request,
             "text": suggestion["text"],
-            "output_id": output_id
+            "textoutput_id": textoutput_id
         }
     )
 
@@ -242,19 +232,19 @@ async def get_tweet_suggestion(
 @app.post("/feedback", response_class=HTMLResponse)
 def submit_feedback(
     request: Request,
-    output_id: int = Form(...),
+    textoutput_id: int = Form(...),
     score: int = Form(...),
     comment: Optional[str] = Form(None)
 ) -> str:
     """
-    Endpoint to submit feedback for a given suggestion Output.
+    Endpoint to submit feedback for a given suggestion TextOutput.
     Score should be 1 for thumbs up or -1 for thumbs down, and an optional comment.
     """
     with Session(engine) as session:
-        output = session.get(Output, output_id)
+        output = session.get(TextOutput, textoutput_id)
         if output is None:
             return "Feedback submission failed: output record not found."
-        # Assuming that the Output model has feedback_score and feedback_comment fields
+        # Assuming that the TextOutput model has feedback_score and feedback_comment fields
         output.feedback.append(Feedback(score=score, comment=comment))
         session.add(output)
         session.commit()
