@@ -72,7 +72,7 @@
                   {% endif %}
                 </button>
               </h2>
-              <div id="domain{{ domain.id }}" class="accordion-collapse collapse" data-bs-parent="#domainsAccordion">
+              <div id="domain{{ domain.id }}" class="accordion-collapse collapse {% if expanded_domain_id|int == domain.id %}show{% endif %}" data-bs-parent="#domainsAccordion">
                 <div class="accordion-body">
                   <!-- Wrap everything in a container for radio control -->
                   <div class="prompt-container">
@@ -80,10 +80,10 @@
                       <!-- Radio controls -->
                       <div class="prompt-type-selector mb-3">
                         <div class="btn-group w-100" role="group">
-                          <input type="radio" class="btn-check" name="prompt_type" id="text{{ domain.id }}" value="text" checked>
+                          <input type="radio" class="btn-check" name="prompt_type" id="text{{ domain.id }}" value="text" {% if not prompt_type or not expanded_domain_id or domain.id != expanded_domain_id|int or prompt_type == 'text' %}checked{% endif %}>
                           <label class="btn btn-outline-secondary" for="text{{ domain.id }}">Text Prompt</label>
                           
-                          <input type="radio" class="btn-check" name="prompt_type" id="image{{ domain.id }}" value="image">
+                          <input type="radio" class="btn-check" name="prompt_type" id="image{{ domain.id }}" value="image" {% if prompt_type and expanded_domain_id and domain.id == expanded_domain_id|int and prompt_type == 'image' %}checked{% endif %}>
                           <label class="btn btn-outline-secondary" for="image{{ domain.id }}">Image Prompt</label>
                         </div>
                       </div>

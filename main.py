@@ -263,7 +263,11 @@ def submit_feedback(
 # ----------------------
 
 @app.get("/settings", response_class=HTMLResponse)
-def settings_page(request: Request) -> _TemplateResponse:
+def settings_page(
+    request: Request,
+    expanded_domain_id: Optional[int] = None,
+    prompt_type: Optional[str] = "text"
+) -> _TemplateResponse:
     """
     Render the settings page with lists of existing AI models and prompts.
     """
@@ -278,7 +282,9 @@ def settings_page(request: Request) -> _TemplateResponse:
         "request": request,
         "models": models,
         "domains": domains,
-        "prompts": prompts
+        "prompts": prompts,
+        "expanded_domain_id": expanded_domain_id,
+        "prompt_type": prompt_type
     })
 
 
@@ -335,21 +341,26 @@ def add_prompt(
             domain.prompts.append(new_prompt)
         session.add(new_prompt)
         session.commit()
-    return RedirectResponse(url="/settings", status_code=303)
+    return RedirectResponse(url=f"/settings?expanded_domain_id={domain_id}&prompt_type={prompt_type}", status_code=303)
 
 
 @app.post("/settings/delete_prompt/{prompt_id}", response_class=HTMLResponse)
-def delete_prompt(request: Request, prompt_id: int):
+def delete_prompt(
+    request: Request,
+    prompt_id
+):
     """
     Delete an existing prompt by its ID.
     """
     with Session(engine) as session:
         prompt = session.get(Prompt, prompt_id)
+        domain_id = prompt.domain_id
+        prompt_type = prompt.prompt_type.value
         if not prompt:
             raise HTTPException(status_code=404, detail="Prompt not found.")
         session.delete(prompt)
         session.commit()
-    return RedirectResponse(url="/settings", status_code=303)
+    return RedirectResponse(url=f"/settings?expanded_domain_id={domain_id}&prompt_type={prompt_type}", status_code=303)
 
 
 @app.post("/settings/add_domain", response_class=HTMLResponse)
