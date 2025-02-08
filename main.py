@@ -289,12 +289,28 @@ def settings_page(
 
 
 @app.post("/settings/add_model", response_class=HTMLResponse)
-def add_model(request: Request, model_name: str = Form(...)):
+def add_model(
+    request: Request,
+    model_name: str = Form(...),
+    text_output: bool = Form(False),
+    image_output: bool = Form(False)
+):
     """
-    Add a new AI model.
+    Add a new AI model with specified output capabilities.
+    At least one output type must be specified.
     """
+    if not (text_output or image_output):
+        raise HTTPException(
+            status_code=400,
+            detail="Model must support at least one output type (text or image)"
+        )
+        
     with Session(engine) as session:
-        new_model = AIModel(name=model_name)
+        new_model = AIModel(
+            name=model_name,
+            text_output=text_output,
+            image_output=image_output
+        )
         session.add(new_model)
         session.commit()
         session.refresh(new_model)
