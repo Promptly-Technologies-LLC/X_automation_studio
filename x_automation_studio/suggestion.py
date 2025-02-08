@@ -7,7 +7,7 @@ from typing import Optional, List, TypeVar
 from dotenv import load_dotenv
 from litellm import completion, ModelResponse
 from sqlmodel import Session, select, func
-from .models import Prompt, TextOutput, AIModel, engine, Feedback
+from .models import Prompt, TextOutput, AIModel, engine, Feedback, PromptType
 
 load_dotenv(override=True)
 
@@ -32,11 +32,17 @@ def weighted_random_choice(items: List[T], probabilities: List[float]) -> T:
     # Using random.choices which accepts a weights argument:
     return random.choices(items, weights=probabilities, k=1)[0]
 
-def select_weighted_prompt(session: Session, temperature: float = 1.0, domain_id: int | str = "") -> Prompt:
+def select_weighted_prompt(
+        session: Session,
+        temperature: float = 1.0,
+        domain_id: int | str = "",
+        prompt_type: PromptType = PromptType.TEXT
+    ) -> Prompt:
     # Optionally filter by domain
     query = select(Prompt)
     if domain_id:
-        query = query.where(Prompt.domain_id == domain_id)
+        query = query.where(Prompt.domain_id == int(domain_id))
+    query = query.where(Prompt.prompt_type == prompt_type)
 
     prompts = session.exec(query).all()
     if not prompts:
@@ -87,7 +93,11 @@ def select_weighted_model(session: Session, temperature: float = 1.0) -> AIModel
     return weighted_random_choice(models, probabilities)
 
 
-def select_highest_rated_prompt(session: Session, domain_id: int | str = "") -> Prompt:
+def select_highest_rated_prompt(
+        session: Session,
+        domain_id: int | str = "",
+        prompt_type: PromptType = PromptType.TEXT
+    ) -> Prompt:
     """Select the prompt with the highest total output feedback score.
 
     Args:
@@ -98,7 +108,8 @@ def select_highest_rated_prompt(session: Session, domain_id: int | str = "") -> 
     """
     query = select(Prompt)
     if domain_id:
-        query = query.where(Prompt.domain_id == domain_id)
+        query = query.where(Prompt.domain_id == int(domain_id))
+    query = query.where(Prompt.prompt_type == prompt_type)
 
     return session.exec(
         query.order_by(
@@ -107,7 +118,11 @@ def select_highest_rated_prompt(session: Session, domain_id: int | str = "") -> 
     ).first()
 
 
-def select_random_prompt(session: Session, domain_id: int | str = "") -> Prompt:
+def select_random_prompt(
+        session: Session,
+        domain_id: int | str = "",
+        prompt_type: PromptType = PromptType.TEXT
+    ) -> Prompt:
     """Select a random prompt from the database.
 
     Args:
@@ -118,7 +133,8 @@ def select_random_prompt(session: Session, domain_id: int | str = "") -> Prompt:
     """
     query = select(Prompt)
     if domain_id:
-        query = query.where(Prompt.domain_id == domain_id)
+        query = query.where(Prompt.domain_id == int(domain_id))
+    query = query.where(Prompt.prompt_type == prompt_type)
 
     return session.exec(query.order_by(func.random())).first()
 
@@ -239,8 +255,10 @@ def get_suggestion(context: str = "", mode: Mode = Mode.WEIGHTED, domain_id: int
     # Call the model
     suggestion_text: str = call_model(
         model,
-        "Return your output as a single tweet, <=280 characters with no other "
-        "text unless it is enclosed in <thinking> tags. " + prompt
+        "Return your output as a single tweet, <=280 characters. "
+        "If you need to include other text such as planning or reasoning "
+        "steps, you may enclose it in <thinking> tags to facilitate its "
+        "removal before the tweet is posted. " + prompt
     )
     logger.info(f"Initial tweet: {suggestion_text}")
     suggestion_text = remove_thinking_tags(suggestion_text)
@@ -276,3 +294,56 @@ def get_suggestion(context: str = "", mode: Mode = Mode.WEIGHTED, domain_id: int
         "prompt_id": prompt_obj.id,
         "aimodel_id": model.id
     }
+
+
+def rewrite_prompt(session: Session, prompt: Prompt, model: AIModel) -> str:
+    """
+    Rewrites the prompt by incorporating any relevant feedback from TextOutput records.
+    Replaces the original prompt with the new, rewritten version.
+    Returns the newly rewritten prompt text.
+    """
+    # Gather all feedback for this prompt.
+    feedback_comments = []
+    textoutputs = session.exec(
+        select(TextOutput).where(TextOutput.prompt_id == prompt.id)
+    ).all()
+    for to in textoutputs:
+        for fb in to.feedback:
+            if fb.comment:
+                feedback_comments.append(fb.comment)
+
+    # If there's no feedback, provide generic rewriting instructions
+    rewrite_instructions = (
+            "Please rewrite the following prompt. Like the original prompt, it "
+            "must include a {context} placeholder for user input. Make no "
+            "assumptions about the context, which could be any length or "
+            "format, from a single word or paragraph to a large table with "
+            "many rows of structured data. "
+            "Follow these prompt engineering principles:\n"
+            "- Be specific and direct\n"
+            "- Frame instructions positively. Tell the model what you want it to do, not what you don't want it to do.\n"
+            "- Feel free to use style or persona instructions to try to steer the model toward desired behaviors and away from undesired ones.\n"
+            "- Also feel free to use examples to help the model understand what good outputs look like.\n"
+            "Return the rewritten prompt without any other text."
+            "\n\nOriginal prompt:\n" + prompt.prompt
+        )
+    if feedback_comments:
+        rewrite_instructions += (
+            "\n\nIncorporate improvements based on this user feedback on "
+            "outputs from the original prompt:\n" +
+            "\n".join([f"- {c}" for c in feedback_comments])
+        )
+
+    rewritten_text = call_model(model, rewrite_instructions)
+    rewritten_text = remove_thinking_tags(rewritten_text)
+
+    # Create a new prompt in the database
+    new_prompt = Prompt(
+        prompt=rewritten_text,
+        domain_id=prompt.domain_id,
+        prompt_type=prompt.prompt_type
+    )
+    session.add(new_prompt)
+    session.commit()
+
+    return rewritten_text

@@ -103,9 +103,18 @@
                           <div>
                             {{ prompt.prompt }}
                           </div>
-                          <form action="/settings/delete_prompt/{{ prompt.id }}" method="post">
-                            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
-                          </form>
+                          <div>
+                            <!-- Existing Delete form -->
+                            <form action="/settings/delete_prompt/{{ prompt.id }}" method="post" class="d-inline">
+                              <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                            </form>
+                            <!-- New Rewrite form -->
+                            {% if prompt.prompt_type.value == "text" %}
+                            <form action="/settings/rewrite_prompt/{{ prompt.id }}" method="post" class="d-inline ms-2">
+                              <button type="submit" class="btn btn-warning btn-sm">Rewrite</button>
+                            </form>
+                            {% endif %}
+                          </div>
                         </li>
                       {% else %}
                         <li class="list-group-item">No prompts in this domain.</li>
