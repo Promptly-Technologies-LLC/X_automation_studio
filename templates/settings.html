@@ -54,7 +54,7 @@
             <label class="form-check-label" for="imageOutput">Image Output</label>
           </div>
           <!-- Hidden checkbox for form validation -->
-          <input type="checkbox" id="outputValidator" name="output_validator" required hidden>
+          <input type="checkbox" id="outputValidator" name="output_validator" required checked hidden>
           <div>
             <button type="submit" class="btn btn-primary">Add Model</button>
             <!-- Validation error message -->
@@ -140,17 +140,15 @@
                           <div>
                             {{ prompt.prompt }}
                           </div>
-                          <div>
+                          <div class="d-flex flex-column align-items-start">
                             <!-- Existing Delete form -->
-                            <form action="/settings/delete_prompt/{{ prompt.id }}" method="post" class="d-inline">
+                            <form action="/settings/delete_prompt/{{ prompt.id }}" method="post" class="mb-2">
                               <button type="submit" class="btn btn-danger btn-sm">Delete</button>
                             </form>
                             <!-- New Rewrite form -->
-                            {% if prompt.prompt_type.value == "text" %}
-                            <form action="/settings/rewrite_prompt/{{ prompt.id }}" method="post" class="d-inline ms-2">
+                            <form action="/settings/rewrite_prompt/{{ prompt.id }}" method="post">
                               <button type="submit" class="btn btn-warning btn-sm">Rewrite</button>
                             </form>
-                            {% endif %}
                           </div>
                         </li>
                       {% else %}

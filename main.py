@@ -223,7 +223,7 @@ async def get_tweet_suggestion(
     Returns the suggestion template with generated text.
     """
     suggestion: dict = get_suggestion(context, mode, domain_id=domain_id)
-    # Create the TextOutput record synchronously and get its id
+
     textoutput_id = create_output_record(suggestion)
 
     return templates.TemplateResponse(
