@@ -17,4 +17,5 @@ dependencies = [
     "wonderwords>=2.2.0",
     "litellm>=1.59.9",
     "sqlmodel>=0.0.22",
+    "tenacity>=9.0.0",
 ]

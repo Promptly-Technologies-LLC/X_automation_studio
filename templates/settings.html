@@ -21,6 +21,15 @@
     .prompt-container:has(input[value="image"]:checked) .prompt-item[data-type="image"] {
       display: flex !important;
     }
+
+    /* Show error when both checkboxes are unchecked */
+    #outputError {
+      display: none;
+    }
+    
+    form:has(#textOutput:not(:checked)):has(#imageOutput:not(:checked)) #outputError {
+      display: block !important;
+    }
   </style>
 </head>
 <body>
@@ -31,15 +40,43 @@
       <div class="col-md-6">
         <h2>AI Models</h2>
         <form action="/settings/add_model" method="post" class="mb-3">
-          <div class="input-group">
+          <div class="input-group mb-2">
             <input type="text" name="model_name" class="form-control" placeholder="Enter model name" required>
+          </div>
+          <div class="form-check mb-2">
+            <input type="checkbox" name="text_output" class="form-check-input" id="textOutput" 
+                   onchange="document.getElementById('outputValidator').checked = this.checked || document.getElementById('imageOutput').checked" checked>
+            <label class="form-check-label" for="textOutput">Text Output</label>
+          </div>
+          <div class="form-check mb-2">
+            <input type="checkbox" name="image_output" class="form-check-input" id="imageOutput"
+                   onchange="document.getElementById('outputValidator').checked = this.checked || document.getElementById('textOutput').checked">
+            <label class="form-check-label" for="imageOutput">Image Output</label>
+          </div>
+          <!-- Hidden checkbox for form validation -->
+          <input type="checkbox" id="outputValidator" name="output_validator" required hidden>
+          <div>
             <button type="submit" class="btn btn-primary">Add Model</button>
+            <!-- Validation error message -->
+            <span id="outputError" class="text-danger mt-2">At least one output type must be selected</span>
           </div>
         </form>
+        
+        <!-- Update the model list to show capabilities -->
         <ul class="list-group">
           {% for model in models %}
             <li class="list-group-item d-flex justify-content-between align-items-center">
-              {{ model.name }}
+              <div>
+                {{ model.name }}
+                <div class="small text-muted">
+                  {% if model.text_output %}
+                  <span class="badge bg-secondary me-1">Text</span>
+                  {% endif %}
+                  {% if model.image_output %}
+                  <span class="badge bg-secondary">Image</span>
+                  {% endif %}
+                </div>
+              </div>
               <form action="/settings/delete_model/{{ model.id }}" method="post" onsubmit="return confirm('Are you sure you want to delete this model?');">
                 <button type="submit" class="btn btn-danger btn-sm">Delete</button>
               </form>
@@ -103,9 +140,18 @@
                           <div>
                             {{ prompt.prompt }}
                           </div>
-                          <form action="/settings/delete_prompt/{{ prompt.id }}" method="post">
-                            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
-                          </form>
+                          <div>
+                            <!-- Existing Delete form -->
+                            <form action="/settings/delete_prompt/{{ prompt.id }}" method="post" class="d-inline">
+                              <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                            </form>
+                            <!-- New Rewrite form -->
+                            {% if prompt.prompt_type.value == "text" %}
+                            <form action="/settings/rewrite_prompt/{{ prompt.id }}" method="post" class="d-inline ms-2">
+                              <button type="submit" class="btn btn-warning btn-sm">Rewrite</button>
+                            </form>
+                            {% endif %}
+                          </div>
                         </li>
                       {% else %}
                         <li class="list-group-item">No prompts in this domain.</li>

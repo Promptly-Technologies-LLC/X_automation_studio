@@ -23,7 +23,7 @@ from x_automation_studio.auth import (
 from x_automation_studio.tweet import submit_tweet, handle_tweet_response
 from x_automation_studio.utils import get_temp_dir
 from x_automation_studio.session import save_token, get_user_session
-from x_automation_studio.suggestion import get_suggestion, create_output_record
+from x_automation_studio.suggestion import get_suggestion, create_output_record, rewrite_prompt, select_random_model
 from x_automation_studio.models import engine, create_tables, seed_db
 
 # Configure logging
@@ -289,12 +289,28 @@ def settings_page(
 
 
 @app.post("/settings/add_model", response_class=HTMLResponse)
-def add_model(request: Request, model_name: str = Form(...)):
+def add_model(
+    request: Request,
+    model_name: str = Form(...),
+    text_output: bool = Form(False),
+    image_output: bool = Form(False)
+):
     """
-    Add a new AI model.
+    Add a new AI model with specified output capabilities.
+    At least one output type must be specified.
     """
+    if not (text_output or image_output):
+        raise HTTPException(
+            status_code=400,
+            detail="Model must support at least one output type (text or image)"
+        )
+        
     with Session(engine) as session:
-        new_model = AIModel(name=model_name)
+        new_model = AIModel(
+            name=model_name,
+            text_output=text_output,
+            image_output=image_output
+        )
         session.add(new_model)
         session.commit()
         session.refresh(new_model)
@@ -374,6 +390,27 @@ def add_domain(request: Request, domain_name: str = Form(...)):
         session.commit()
     return RedirectResponse(url="/settings", status_code=303)
 
+
+@app.post("/settings/rewrite_prompt/{prompt_id}", response_class=HTMLResponse)
+def rewrite_existing_prompt(request: Request, prompt_id: int):
+    """
+    Rewrite an existing prompt using AI and feedback from its TextOutputs.
+    """
+    with Session(engine) as session:
+        prompt_obj = session.get(Prompt, prompt_id)
+        if not prompt_obj:
+            raise HTTPException(status_code=404, detail="Prompt not found.")
+
+        model = select_random_model(session)
+        if not model or not model.text_output:
+            raise HTTPException(status_code=400, detail="No suitable text model available.")
+
+        rewrite_prompt(session, prompt_obj, model)
+
+        return RedirectResponse(
+            url=f"/settings?expanded_domain_id={prompt_obj.domain_id}&prompt_type={prompt_obj.prompt_type.value}",
+            status_code=303
+        )
 
 
 if __name__ == "__main__":
