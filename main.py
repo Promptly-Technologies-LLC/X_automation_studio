@@ -64,10 +64,15 @@ def show_form(request: Request) -> _TemplateResponse:
     """
     # Get and clear any flash messages for this session
     messages = flash_messages.pop(os.getenv("X_USERNAME"), {})
+
+    with Session(engine) as session:
+        domains = session.exec(select(Domain)).all()
+
     return templates.TemplateResponse(
         "index.html", 
         {
             "request": request,
+            "domains": domains,
             **messages  # Unpack message and tweet_link if they exist
         }
     )

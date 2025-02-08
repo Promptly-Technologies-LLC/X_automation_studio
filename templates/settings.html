@@ -76,19 +76,19 @@
                 <div class="accordion-body">
                   <!-- Wrap everything in a container for radio control -->
                   <div class="prompt-container">
-                    <!-- Radio controls -->
-                    <div class="prompt-type-selector mb-3">
-                      <div class="btn-group w-100" role="group">
-                        <input type="radio" class="btn-check" name="prompt_type" id="text{{ domain.id }}" value="text" checked>
-                        <label class="btn btn-outline-secondary" for="text{{ domain.id }}">Text Prompt</label>
-                        
-                        <input type="radio" class="btn-check" name="prompt_type" id="image{{ domain.id }}" value="image">
-                        <label class="btn btn-outline-secondary" for="image{{ domain.id }}">Image Prompt</label>
-                      </div>
-                    </div>
-
-                    <!-- Add Prompt Form -->
                     <form action="/settings/add_prompt" method="post" class="mb-3">
+                      <!-- Radio controls -->
+                      <div class="prompt-type-selector mb-3">
+                        <div class="btn-group w-100" role="group">
+                          <input type="radio" class="btn-check" name="prompt_type" id="text{{ domain.id }}" value="text" checked>
+                          <label class="btn btn-outline-secondary" for="text{{ domain.id }}">Text Prompt</label>
+                          
+                          <input type="radio" class="btn-check" name="prompt_type" id="image{{ domain.id }}" value="image">
+                          <label class="btn btn-outline-secondary" for="image{{ domain.id }}">Image Prompt</label>
+                        </div>
+                      </div>
+
+                      <!-- 'Add Prompt' controls -->
                       <input type="hidden" name="domain_id" value="{{ domain.id }}">
                       <div class="input-group">
                         <input type="text" name="prompt_text" class="form-control" placeholder="Enter prompt text" required>

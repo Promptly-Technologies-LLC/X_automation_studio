@@ -77,9 +77,13 @@
                                 <label for="domain-id" class="form-label">Domain:</label>
                                 <select id="domain-id" name="domain_id" class="form-select">
                                     <option value="" selected>-- All Domains --</option>
-                                    {% for domain in domains %}
-                                      <option value="{{ domain.id }}">{{ domain.name }}</option>
-                                    {% endfor %}
+                                    {% if domains %}
+                                      {% for domain in domains %}
+                                        <option value="{{ domain.id }}">{{ domain.name }}</option>
+                                      {% endfor %}
+                                    {% else %}
+                                      <option value="">No domains available</option>
+                                    {% endif %}
                                 </select>
                             </div>
 
