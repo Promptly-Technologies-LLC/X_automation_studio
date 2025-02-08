@@ -32,7 +32,7 @@ def weighted_random_choice(items: List[T], probabilities: List[float]) -> T:
     # Using random.choices which accepts a weights argument:
     return random.choices(items, weights=probabilities, k=1)[0]
 
-def select_weighted_prompt(session: Session, temperature: float = 1.0, domain_id: Optional[int] = None) -> Prompt:
+def select_weighted_prompt(session: Session, temperature: float = 1.0, domain_id: int | str = "") -> Prompt:
     # Optionally filter by domain
     query = select(Prompt)
     if domain_id:
@@ -87,7 +87,7 @@ def select_weighted_model(session: Session, temperature: float = 1.0) -> AIModel
     return weighted_random_choice(models, probabilities)
 
 
-def select_highest_rated_prompt(session: Session, domain_id: Optional[int] = None) -> Prompt:
+def select_highest_rated_prompt(session: Session, domain_id: int | str = "") -> Prompt:
     """Select the prompt with the highest total output feedback score.
 
     Args:
@@ -107,7 +107,7 @@ def select_highest_rated_prompt(session: Session, domain_id: Optional[int] = Non
     ).first()
 
 
-def select_random_prompt(session: Session, domain_id: Optional[int] = None) -> Prompt:
+def select_random_prompt(session: Session, domain_id: int | str = "") -> Prompt:
     """Select a random prompt from the database.
 
     Args:
@@ -218,7 +218,7 @@ def remove_thinking_tags(text: str) -> str:
     return re.sub(r"<thinking>.*?</thinking>", "", text, flags=re.DOTALL)
 
 
-def get_suggestion(context: str | None = None, mode: Mode = Mode.RANDOM, domain_id: Optional[int] = None) -> dict:
+def get_suggestion(context: str = "", mode: Mode = Mode.WEIGHTED, domain_id: int | str = "") -> dict:
     if not context:
         context = get_random_noun()
 

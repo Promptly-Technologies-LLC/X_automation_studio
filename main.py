@@ -214,9 +214,9 @@ def callback(request: Request, code: str, state: str) -> RedirectResponse:
 async def get_tweet_suggestion(
     request: Request,
     background_tasks: BackgroundTasks,
-    context: Optional[str] = None,
-    mode: Optional[str] = "random",
-    domain_id: Optional[int] = None
+    context: str = "",
+    mode: str = "weighted",
+    domain_id: int | str = ""
 ) -> _TemplateResponse:
     """
     Get tweet suggestions based on an optional context.

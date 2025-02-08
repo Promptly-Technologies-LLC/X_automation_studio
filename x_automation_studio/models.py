@@ -84,20 +84,21 @@ class Feedback(sqlmodel.SQLModel, table=True):
 # --- SEED ---
 
 DEFAULT_MODELS = [
-    AIModel(name="openrouter/minimax/minimax-01", text_output=True, image_output=False),
-    AIModel(name="openrouter/qwen/qwen-turbo-2024-11-01", text_output=True, image_output=False),
-    AIModel(name="openrouter/qwen/qwen-plus", text_output=True, image_output=False),
-    AIModel(name="openrouter/openai/o3-mini", text_output=True, image_output=False),
-    AIModel(name="openrouter/deepseek/deepseek-r1-distill-qwen-1.5b", text_output=True, image_output=False),
-    AIModel(name="openrouter/mistralai/mistral-small-24b-instruct-2501", text_output=True, image_output=False),
-    AIModel(name="openrouter/deepseek/deepseek-r1-distill-qwen-32b", text_output=True, image_output=False),
-    AIModel(name="openrouter/deepseek/deepseek-r1-distill-qwen-14b", text_output=True, image_output=False),
-    AIModel(name="openrouter/liquid/lfm-7b", text_output=True, image_output=False),
-    AIModel(name="openrouter/google/gemini-2.0-flash-thinking-exp:free", text_output=True, image_output=False),
+    # AIModel(name="openrouter/minimax/minimax-01", text_output=True, image_output=False),
+    # AIModel(name="openrouter/qwen/qwen-turbo-2024-11-01", text_output=True, image_output=False),
+    # AIModel(name="openrouter/qwen/qwen-plus", text_output=True, image_output=False),
+    # AIModel(name="openrouter/openai/o3-mini", text_output=True, image_output=False),
+    # AIModel(name="openrouter/deepseek/deepseek-r1-distill-qwen-1.5b", text_output=True, image_output=False),
+    # AIModel(name="openrouter/mistralai/mistral-small-24b-instruct-2501", text_output=True, image_output=False),
+    # AIModel(name="openrouter/deepseek/deepseek-r1-distill-qwen-32b", text_output=True, image_output=False),
+    # AIModel(name="openrouter/deepseek/deepseek-r1-distill-qwen-14b", text_output=True, image_output=False),
+    # AIModel(name="openrouter/liquid/lfm-7b", text_output=True, image_output=False),
+    # AIModel(name="openrouter/google/gemini-2.0-flash-thinking-exp:free", text_output=True, image_output=False),
+    AIModel(name="google/gemini-2.0-flash-001", text_output=True, image_output=False),
     AIModel(name="openrouter/deepseek/deepseek-r1:free", text_output=True, image_output=False),
     AIModel(name="openrouter/sophosympatheia/rogue-rose-103b-v0.2:free", text_output=True, image_output=False),
     AIModel(name="openrouter/microsoft/phi-4", text_output=True, image_output=False),
-    AIModel(name="openrouter/openai/o1", text_output=True, image_output=False),
+    # AIModel(name="openrouter/openai/o1", text_output=True, image_output=False),
     AIModel(name="openrouter/x-ai/grok-2-1212", text_output=True, image_output=False),
     AIModel(name="dall-e-3", text_output=False, image_output=True)
 ]
