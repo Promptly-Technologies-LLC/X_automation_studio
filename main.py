@@ -12,7 +12,7 @@ from starlette.templating import _TemplateResponse
 from contextlib import asynccontextmanager
 from sqlmodel import Session, select
 from sqlalchemy.orm import selectinload
-from x_automation_studio.models import AIModel, Prompt, TextOutput, Feedback, Domain, PromptType
+from x_automation_studio.models import AIModel, Prompt, TextOutput, Feedback, Domain, PromptType, UserTweet
 
 from x_automation_studio.auth import (
     refresh_token_if_needed,
@@ -81,7 +81,8 @@ def show_form(request: Request) -> _TemplateResponse:
 async def post_tweet(
     request: Request,
     text: str = Form(...),
-    image: Optional[UploadFile] = File(None)
+    image: Optional[UploadFile] = File(None),
+    suggestion_id: Optional[int] = Form(None)
 ) -> RedirectResponse:
     """
     Handle the form submission:
@@ -105,7 +106,7 @@ async def post_tweet(
     # If we have a saved session, try to use it
     if current_session and current_token:
         try:
-            # Try to refresh token if needed
+            # Check and refresh token if necessary
             if is_token_expired(current_token):
                 new_token = refresh_token_if_needed(current_session, current_token)
                 if new_token:
@@ -116,11 +117,23 @@ async def post_tweet(
                     logger.warning("Token refresh failed, will start new OAuth flow")
                     current_session = None
                     current_token = None
-            
-            if current_token:  # Only try posting if we still have a valid token
+
+            if current_token:
                 response = submit_tweet(text=text, media_path=image_path, new_token=current_token)
-                
                 message, tweet_link = handle_tweet_response(response)
+
+                # If posting was successful, persist the UserTweet record
+                if response.ok:
+                    tweet_id = response.json().get("data", {}).get("id", "")
+                    with Session(engine) as session:
+                        user_tweet = UserTweet(
+                            tweet_text=text,
+                            tweet_id=tweet_id,
+                            suggestion_id=suggestion_id
+                        )
+                        session.add(user_tweet)
+                        session.commit()
+
                 flash_messages[os.getenv("X_USERNAME")] = {
                     "message": message,
                     "tweet_link": tweet_link if response.ok else None
@@ -134,23 +147,22 @@ async def post_tweet(
             }
             return RedirectResponse(url="/", status_code=303)
 
-    # Only start new OAuth flow if we don't have valid tokens
-    if not current_token:
-        twitter_session, code_verifier, authorization_url, oauth_state = initialize_oauth_flow()
-        logger.info("Starting new OAuth2 flow with Twitter")
+    # If no valid token, start new OAuth flow...
+    twitter_session, code_verifier, authorization_url, oauth_state = initialize_oauth_flow()
+    logger.info("Starting new OAuth2 flow with Twitter")
+    # Store suggestion_id in the oauth state so it carries forward after auth
+    oauth_states[oauth_state] = {
+        "text": text,
+        "image_path": image_path,
+        "twitter_session": twitter_session,
+        "code_verifier": code_verifier,
+        "suggestion_id": suggestion_id
+    }
+    logger.info("Stored OAuth state: %s", oauth_state)
 
-        # Store everything needed for the callback
-        oauth_states[oauth_state] = {
-            "text": text,
-            "image_path": image_path,
-            "twitter_session": twitter_session,
-            "code_verifier": code_verifier
-        }
-        logger.info("Stored OAuth state: %s", oauth_state)
-
-        # Redirect to Twitter's OAuth page
-        logger.info("Redirecting to Twitter auth URL: %s", authorization_url)
-        return RedirectResponse(url=authorization_url, status_code=303)
+    # Redirect to Twitter's OAuth page
+    logger.info("Redirecting to Twitter auth URL: %s", authorization_url)
+    return RedirectResponse(url=authorization_url, status_code=303)
 
 @app.get("/oauth/callback", response_class=HTMLResponse)
 def callback(request: Request, code: str, state: str) -> RedirectResponse:
@@ -177,6 +189,7 @@ def callback(request: Request, code: str, state: str) -> RedirectResponse:
     image_path: Optional[str] = stored_data["image_path"]
     twitter_session: OAuth2Session = stored_data["twitter_session"]
     code_verifier: str = stored_data["code_verifier"]
+    suggestion_id: Optional[int] = stored_data.get("suggestion_id")
 
     # Exchange code for token
     logger.info("Exchanging OAuth code for token")
@@ -198,6 +211,19 @@ def callback(request: Request, code: str, state: str) -> RedirectResponse:
     response: Response = submit_tweet(text=text, media_path=image_path, new_token=token)
     
     message, tweet_link = handle_tweet_response(response)
+
+    # Persist the user tweet in the database if successfully posted
+    if response.ok:
+        tweet_id = response.json().get("data", {}).get("id", "")
+        with Session(engine) as session:
+            user_tweet = UserTweet(
+                tweet_text=text,
+                tweet_id=tweet_id,
+                suggestion_id=suggestion_id
+            )
+            session.add(user_tweet)
+            session.commit()
+
     flash_messages[os.getenv("X_USERNAME")] = {
         "message": message,
         "tweet_link": tweet_link if response.ok else None

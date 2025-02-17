@@ -1,13 +1,13 @@
 # models.py
-import sqlmodel
-from sqlmodel import Session, select, SQLModel
-from typing import Optional
+from sqlmodel import Session, select, SQLModel, Field, Relationship, create_engine
+from typing import Optional, List
 from enum import Enum
+from datetime import datetime, UTC
 
 # --- DB ---
 
 DATABASE_URL = "sqlite:///./database.db"
-engine = sqlmodel.create_engine(DATABASE_URL, echo=True)
+engine = create_engine(DATABASE_URL, echo=True)
 
 # --- MODELS ---
 
@@ -15,71 +15,82 @@ class PromptType(Enum):
     TEXT = "text"
     IMAGE = "image"
 
-class AIModel(sqlmodel.SQLModel, table=True):
-    id: Optional[int] = sqlmodel.Field(default=None, primary_key=True)
+class AIModel(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
     # Name under which model can be accessed through LiteLLM
     name: str
     text_output: bool
     image_output: bool
 
-    textoutputs: list["TextOutput"] = sqlmodel.Relationship(back_populates="aimodel")
-    imageoutputs: list["ImageOutput"] = sqlmodel.Relationship(back_populates="aimodel")
+    textoutputs: list["TextOutput"] = Relationship(back_populates="aimodel")
+    imageoutputs: list["ImageOutput"] = Relationship(back_populates="aimodel")
 
 class Domain(SQLModel, table=True):
-    id: Optional[int] = sqlmodel.Field(default=None, primary_key=True)
+    id: Optional[int] = Field(default=None, primary_key=True)
     name: str
 
-    prompts: list["Prompt"] = sqlmodel.Relationship(back_populates="domain")
+    prompts: list["Prompt"] = Relationship(back_populates="domain")
 
-class Prompt(sqlmodel.SQLModel, table=True):
-    id: Optional[int] = sqlmodel.Field(default=None, primary_key=True)
+class Prompt(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
     # Full text of the prompt
     prompt: str
     prompt_type: PromptType
 
-    domain_id: Optional[int] = sqlmodel.Field(default=None, foreign_key="domain.id")
-    domain: Optional[Domain] = sqlmodel.Relationship(back_populates="prompts")
+    domain_id: Optional[int] = Field(default=None, foreign_key="domain.id")
+    domain: Optional[Domain] = Relationship(back_populates="prompts")
 
-    textoutputs: list["TextOutput"] = sqlmodel.Relationship(back_populates="prompt")
-    imageoutputs: list["ImageOutput"] = sqlmodel.Relationship(back_populates="prompt")
+    textoutputs: list["TextOutput"] = Relationship(back_populates="prompt")
+    imageoutputs: list["ImageOutput"] = Relationship(back_populates="prompt")
 
-class TextOutput(sqlmodel.SQLModel, table=True):
-    id: Optional[int] = sqlmodel.Field(default=None, primary_key=True)
+class TextOutput(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
     # Full text of the output
     text: str
 
-    prompt_id: Optional[int] = sqlmodel.Field(default=None, foreign_key="prompt.id")
-    prompt: Prompt = sqlmodel.Relationship(back_populates="textoutputs")
+    prompt_id: Optional[int] = Field(default=None, foreign_key="prompt.id")
+    prompt: Prompt = Relationship(back_populates="textoutputs")
 
-    aimodel_id: Optional[int] = sqlmodel.Field(default=None, foreign_key="aimodel.id")
-    aimodel: AIModel = sqlmodel.Relationship(back_populates="textoutputs")
+    aimodel_id: Optional[int] = Field(default=None, foreign_key="aimodel.id")
+    aimodel: AIModel = Relationship(back_populates="textoutputs")
 
-    feedback: list["Feedback"] = sqlmodel.Relationship(back_populates="textoutput")
+    feedback: list["Feedback"] = Relationship(back_populates="textoutput")
 
-class ImageOutput(sqlmodel.SQLModel, table=True):
-    id: Optional[int] = sqlmodel.Field(default=None, primary_key=True)
+    user_tweets: List["UserTweet"] = Relationship(back_populates="suggestion")
+
+class ImageOutput(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
     # Blob of the image
     image: bytes
 
-    prompt_id: Optional[int] = sqlmodel.Field(default=None, foreign_key="prompt.id")
-    prompt: Prompt = sqlmodel.Relationship(back_populates="imageoutputs")
+    prompt_id: Optional[int] = Field(default=None, foreign_key="prompt.id")
+    prompt: Prompt = Relationship(back_populates="imageoutputs")
 
-    aimodel_id: Optional[int] = sqlmodel.Field(default=None, foreign_key="aimodel.id")
-    aimodel: AIModel = sqlmodel.Relationship(back_populates="imageoutputs")
+    aimodel_id: Optional[int] = Field(default=None, foreign_key="aimodel.id")
+    aimodel: AIModel = Relationship(back_populates="imageoutputs")
 
-    feedback: list["Feedback"] = sqlmodel.Relationship(back_populates="imageoutput")
+    feedback: list["Feedback"] = Relationship(back_populates="imageoutput")
 
-class Feedback(sqlmodel.SQLModel, table=True):
-    id: Optional[int] = sqlmodel.Field(default=None, primary_key=True)
+class Feedback(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
     # Full text of the feedback
     score: int
-    comment: Optional[str] = sqlmodel.Field(default=None)
+    comment: Optional[str] = Field(default=None)
 
-    textoutput_id: Optional[int] = sqlmodel.Field(default=None, foreign_key="textoutput.id")
-    textoutput: TextOutput = sqlmodel.Relationship(back_populates="feedback")
+    textoutput_id: Optional[int] = Field(default=None, foreign_key="textoutput.id")
+    textoutput: TextOutput = Relationship(back_populates="feedback")
 
-    imageoutput_id: Optional[int] = sqlmodel.Field(default=None, foreign_key="imageoutput.id")
-    imageoutput: ImageOutput = sqlmodel.Relationship(back_populates="feedback")
+    imageoutput_id: Optional[int] = Field(default=None, foreign_key="imageoutput.id")
+    imageoutput: ImageOutput = Relationship(back_populates="feedback")
+
+class UserTweet(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    tweet_text: str
+    tweet_id: str
+    suggestion_id: Optional[int] = Field(default=None, foreign_key="textoutput.id")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    
+    suggestion: Optional["TextOutput"] = Relationship(back_populates="user_tweets")
 
 # --- SEED ---
 

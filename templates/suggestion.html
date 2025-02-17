@@ -3,7 +3,7 @@
         <div class="card-body">
             <p class="card-text">{{ text }}</p>
             <button type="button" class="btn btn-sm btn-outline-primary w-100" 
-                    onclick="document.getElementById('text').value = this.parentElement.querySelector('.card-text').textContent.trim()">
+                    onclick="useSuggestion('{{ text }}', '{{ textoutput_id }}')">
                 Use This
             </button>
             <hr/>
@@ -26,3 +26,12 @@
         </div>
     </div>
 </div>
+
+<script>
+function useSuggestion(text, suggestionId) {
+    // Fill the tweet composer textarea
+    document.getElementById('text').value = text;
+    // Set the hidden suggestion_id input's value
+    document.getElementById('suggestion_id').value = suggestionId;
+}
+</script>
