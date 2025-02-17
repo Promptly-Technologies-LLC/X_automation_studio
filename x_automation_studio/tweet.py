@@ -1,8 +1,11 @@
 import os
 import logging
 import requests
+from dotenv import load_dotenv
 from typing import Optional, Dict, Any
 from .media import create_media_payload
+
+load_dotenv()
 
 logger = logging.getLogger("uvicorn.error")
 
