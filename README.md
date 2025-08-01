@@ -45,6 +45,10 @@ Next, create a new project and application from the developer dashboard. Then, f
 
 You will also need to generate an access token and secret from your application's "Keys and Tokens" section in the developer dashboard. Save these to your `.env` file.
 
+### Getting an OpenRouter API key
+
+You will also need to generate an [OpenRouter API key](https://openrouter.ai/settings/keys) from your OpenRouter account. Save this to your `.env` file.
+
 ## Usage
 
 To run the application, use:
