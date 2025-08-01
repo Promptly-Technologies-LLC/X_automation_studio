@@ -2,8 +2,9 @@ import os
 import logging
 import requests
 from dotenv import load_dotenv
-from typing import Optional, Dict, Any
+from typing import Optional
 from .media import create_media_payload
+from .auth import create_oauth1_auth
 
 load_dotenv()
 
@@ -69,23 +70,21 @@ def handle_tweet_response(response: requests.Response) -> tuple[Optional[str], O
     
     return message, tweet_link
 
-def submit_tweet(text: str, media_path: str | None = None, new_token: Dict[str, Any] | None = None) -> requests.Response:
+def submit_tweet(text: str, media_path: str | None = None) -> requests.Response:
     """
-    Post a tweet with optional media.
+    Post a tweet with optional media using OAuth1 authentication.
     Returns the raw response object.
     """
-    if not new_token:
-        raise ValueError("Token is required")
-        
     tweet_payload = create_tweet_payload(text=text, media_path=media_path)
     logger.info(f"Posting tweet with payload: {tweet_payload}")
     
+    auth = create_oauth1_auth()
     return requests.request(
         method="POST",
         url="https://api.x.com/2/tweets",
         json=tweet_payload,
+        auth=auth,  # Use the auth parameter for OAuth1
         headers={
-            "Authorization": f"Bearer {new_token['access_token']}",
             "Content-Type": "application/json",
         },
     )

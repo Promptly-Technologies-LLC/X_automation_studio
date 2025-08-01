@@ -33,21 +33,17 @@ Then:
 
 ## Configuration
 
-### Getting an API key and secret
+### Getting an X API key and secret
 
 Before you can run the app, you need to configure your Twitter API credentials. To do this, you need to [sign up for a Twitter/X developer account](https://developer.twitter.com/). Upon creating your account, you will receive an API key and an API secret. Save these in your `.env` file. 
 
-### Getting a client token and secret
-
-Next, create a new project and application from the developer dashboard. Then, from the application settings, do your user authentication setup. Give your application "Read and Write" permissions, classify it as a "Web App", and set the Callback URI to "http://127.0.0.1:5000/oauth/callback". Enter any URL you like for the required "Website" field; this won't affect our application. Upon saving these settings, you will be provided a client token and secret, which you should save to your `.env` file.
-
-### Getting an access token and secret
+### Getting an X access token and secret
 
 You will also need to generate an access token and secret from your application's "Keys and Tokens" section in the developer dashboard. Save these to your `.env` file.
 
-### Getting an OpenRouter API key
+### Getting an LLM API key
 
-You will also need to generate an [OpenRouter API key](https://openrouter.ai/settings/keys) from your OpenRouter account. Save this to your `.env` file.
+You will also need to generate API keys for the model providers you want to use. To use the default models, you can generate API keys for [OpenAI](https://platform.openai.com/api-keys) for generating images, and [OpenRouter](https://openrouter.ai/settings/keys) for generating text. Save these to your `.env` file.
 
 ## Usage
 

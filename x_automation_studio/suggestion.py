@@ -71,7 +71,7 @@ def select_weighted_prompt(
 def select_weighted_model(session: Session, temperature: float = 1.0) -> AIModel:
     # Retrieve all models that support text output.
     models = session.exec(
-        select(AIModel).where(AIModel.text_output == True)
+        select(AIModel).where(AIModel.text_output)
     ).all()
     if not models:
         raise ValueError("No models available")
@@ -150,7 +150,7 @@ def select_random_model(session: Session) -> AIModel:
     """
     return session.exec(
         select(AIModel).where(
-            AIModel.text_output == True
+            AIModel.text_output
         ).order_by(func.random())
     ).first()
 
@@ -165,7 +165,7 @@ def select_highest_rated_model(session: Session) -> AIModel:
         AIModel: The AI model with the highest cumulative score.
     """
     return session.exec(
-        select(AIModel).where(AIModel.text_output == True).order_by(
+        select(AIModel).where(AIModel.text_output).order_by(
             func.sum(func.coalesce(TextOutput.feedback.score, 0)).desc()
         )
     ).first()
