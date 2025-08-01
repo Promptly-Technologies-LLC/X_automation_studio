@@ -55,8 +55,37 @@ uv run python main.py
 
 This will start a FastAPI server on port 5000. You can then navigate to [http://127.0.0.1:5000](http://127.0.0.1:5000) in a web browser to view the app.
 
-The app consists of a simple form that allows you to input text and select an image to go with the text. Supply some text and then click "Post Tweet". You will be redirected to Twitter to authenticate with your account. Once you authenticate, you will be redirected back to the app, which will display a link to your posted tweet.
+### Settings
 
-![Animated GIF of the app in action](./app-flow.gif)
+Click the "Settings" button from the navigation bar to configure the app.
 
-Once you've authenticated, your access and refresh tokens will be stored in `sessions/tokens.json`. Your refresh token will be used to generate new access tokens when your access token expires. It should be good for six months, after which you will need to authenticate again to generate a new refresh token. (No logout functionality is provided in this demo, but you can manually delete the `sessions/tokens.json` file to log out of your account.)
+![Settings page](./app-flow/settings.jpg)
+
+Here you can add models (prefix with `openrouter/` for OpenRouter models). You can also add domains (subject matter areas) and prompts within each domain for generating suggested tweets.
+
+### Generating suggestions
+
+The app consists of two forms: one for tweeting and one for generating tweet suggestions.
+
+To generate a tweet suggestion, fill out the suggestions form. Provide some context for the tweet you want to generate, and then click "Generate Suggestion". The app will generate a tweet suggestion based on the context you provided:
+
+![Suggestions form](./app-flow/suggestions.gif)
+
+You can then provide some feedback on the suggestion and click the thumbs up or thumbs down button. Your vote will be used to prioritize models and prompts that generate good suggestions, and deprioritize models and prompts that generate bad suggestions. Also, if you navigate back over to the settings page, you can click "Rewrite" on any prompt to have an LLM auto-rewrite the prompt, taking into account all your feedback on outputs from that prompt:
+
+![Rewrite prompt](./app-flow/rewrite.gif)
+
+### Posting a tweet
+
+Now, if we go back to the home page and generate a suggestion, we can see that the suggestion is now better:
+
+![Better suggestion](app-flow/use.gif)
+
+If we want to use the suggestion, we can click "Use This", and it will be moved over into the tweeting form, where we can edit it to our liking and then click "Post Tweet".
+
+
+
+
+
+To post a tweet, fill out the tweeting form. Supply some text and then click "Post Tweet". You will be redirected to Twitter to authenticate with your account. Once you authenticate, you will be redirected back to the app, which will display a link to your posted tweet.
+
